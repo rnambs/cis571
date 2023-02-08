@@ -27,9 +27,10 @@ module arithmetic_unit(input  wire [15:0] i_insn,
       wire [15:0] mul_wire = i_r1data * i_r2data;
       // ADD & SUB
       wire [15:0] add_input = i_insn[5] == 1'b1 ? i_sext_imm5 : 
-                              i_insn[5] == 1'b1 ? !i_r2data : 
+                              i_insn[4] == 1'b1 ? !i_r2data : 
                               i_r2data;
-      wire carry_in = i_insn[5];
+
+      wire carry_in = i_insn[5:4] == 2'b01 ? 1'b1 : 1'b0;
 
       wire [15:0] cla_wire;
       
