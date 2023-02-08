@@ -1,5 +1,5 @@
 /* Names: Rahul Nambiar and Lorenzo Lucena Maguire
-   PennKey: rnambiar and 
+   PennKey: rnambiar and llucena
 */
 
 `timescale 1ns / 1ps
