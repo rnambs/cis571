@@ -17,10 +17,22 @@ endmodule
 // 
 
 module shift_unit(
+               input  wire [15:0] i_insn,
                input wire [15:0]  i_r1data,
-               input wire [15:0]  i_r2data,
                input wire [15:0]  remainder,
                output wire [15:0] o_result);
+      wire i_imm4[3:0] = i_insn[3:0];
+      //SLL
+      wire sll_wire = i_r1data << i_imm4;
+      //SRA
+      wire sra_wire = i_r1data >>> i_imm4;
+      //SRL
+      wire srl_wire = i_r1data >> i_imm4;
+      // Assign output
+      assign o_result = i_insn[5:4] == 2'b00 ?  sll_wire:
+                   i_insn[5:4] == 2'b01 ?  sra_wire:
+                   i_insn[5:4] == 2'b10 ? srl_wire:
+                   remainder;
 endmodule
 
 module compare_unit(input wire [15:0]  i_insn,
@@ -28,11 +40,8 @@ module compare_unit(input wire [15:0]  i_insn,
                input wire [15:0]  i_r2data,
                output wire [15:0] o_result);
 
-wire signed signed_rs;
-wire signed signed_rt;
-assign signed_rs = i_r1data;
-assign signed_rt = i_r2data;
-
+wire signed signed_rs = i_r1data;
+wire signed signed_rt = i_r2data;
 
 //CMP
 wire [15:0] cmp_wire = signed_rs > signed_rt ? {15{1'b0}, 1'b1}: 
