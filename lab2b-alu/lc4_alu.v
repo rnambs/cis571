@@ -14,20 +14,58 @@ module lc4_alu(input  wire [15:0] i_insn,
 
 endmodule
 
-// 
+module arithmetic_unit(input  wire [15:0] i_insn,
+               input wire [15:0]  i_pc,
+               input wire [15:0]  i_r1data,
+               input wire [15:0]  i_r2data,
+               output wire [15:0] remainder,
+               output wire [15:0] o_result);
+
+      wire signed i_sext_imm5 = {9{i_insn[11]}, i_insn[4:0]};
+
+      // MUL
+      wire [15:0] mul_wire = i_r1data * i_r2data;
+      // ADD & SUB
+      wire [15:0] add_input = i_insn[5] == 1'b1 ? i_sext_imm5 : 
+                              i_insn[5] == 1'b1 ? !i_r2data : 
+                              i_r2data;
+      wire carry_in = i_insn[5];
+
+      wire [15:0] cla_wire;
+      
+      cla16(
+            .a(i_r1data),
+            .b(add_input),
+            .cin(carry_in),
+            .sum(cla_wire)
+            );
+
+      // DIV
+      wire [15:0] div_wire;
+      lc4_divider(
+            .i_dividend(i_r1data),
+            .i_divisor(i_r2data),
+            .o_remainder(remainder),
+            .o_quotient(div_wire)
+      );
+
+      assign o_result = i_insn[4:3] == 2'b01 ? mul_wire :
+                        i_insn[4:3] == 2'b11 ? div_wire :
+                        cla_wire;
+endmodule
 
 module shift_unit(
                input  wire [15:0] i_insn,
                input wire [15:0]  i_r1data,
                input wire [15:0]  remainder,
                output wire [15:0] o_result);
-      wire i_imm4[3:0] = i_insn[3:0];
+      wire [15:0] i_imm4[3:0] = i_insn[3:0];
       //SLL
-      wire sll_wire = i_r1data << i_imm4;
+      wire [15:0] sll_wire = i_r1data << i_imm4;
       //SRA
-      wire sra_wire = i_r1data >>> i_imm4;
+      wire [15:0] sra_wire = i_r1data >>> i_imm4;
       //SRL
-      wire srl_wire = i_r1data >> i_imm4;
+      wire [15:0] srl_wire = i_r1data >> i_imm4;
       // Assign output
       assign o_result = i_insn[5:4] == 2'b00 ?  sll_wire:
                    i_insn[5:4] == 2'b01 ?  sra_wire:
@@ -40,8 +78,8 @@ module compare_unit(input wire [15:0]  i_insn,
                input wire [15:0]  i_r2data,
                output wire [15:0] o_result);
 
-wire signed signed_rs = i_r1data;
-wire signed signed_rt = i_r2data;
+wire signed [15:0] signed_rs = i_r1data;
+wire signed [15:0] signed_rt = i_r2data;
 
 //CMP
 wire [15:0] cmp_wire = signed_rs > signed_rt ? {15{1'b0}, 1'b1}: 
@@ -54,7 +92,7 @@ wire [15:0] cmpu_wire = i_r1data > i_r2data ? {15{1'b0}, 1'b1}:
 //CMPI
 wire [15:0] cmpi_wire;
 
-wire signed i_sext_imm7 = {9{i_insn[6]}, i_insn[6:0]};
+wire signed [15:0] i_sext_imm7 = {9{i_insn[6]}, i_insn[6:0]};
 
 assign cmpi_wire = signed_rs > i_sext_imm7 ? {15{1'b0}, 1'b1}: 
                   signed_rs == i_sext_imm7 ? 16{1'b0} : 
