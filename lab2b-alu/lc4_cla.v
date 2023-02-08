@@ -42,7 +42,7 @@ module cla16
   (input wire [15:0]  a, b,
    input wire         cin,
    output wire [15:0] sum);
-
+  assign sum = {16{1'b0}};
 endmodule
 
 
