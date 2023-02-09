@@ -1,4 +1,4 @@
-/* INSERT NAME AND PENNKEY HERE */
+/* Rahul Nambiar (rnambiar) and Lorenzo Lucena Maguire (llucena) */
 
 `timescale 1ns / 1ps
 `default_nettype none
@@ -45,14 +45,24 @@ module lc4_alu(input  wire [15:0] i_insn,
             .i_r2data(i_r2data),
             .o_result(o_logic)
             );
+
+      // HICONST
+      wire [15:0] o_hiconst = (i_r1data & 8'hFF) | (i_insn[7:0] << 8);
+
+      // CONST
+      wire [15:0] o_const = {{7{i_insn[8]}},i_insn[8:0]};
+      
       // Output MUX -- keep on adding ternary terms as needed
       wire [3:0] opcode = i_insn[15:12];
       assign o_result = opcode == 4'b0001 ? o_arith : 
                         opcode == 4'b0010 ? o_compare :
                         opcode == 4'b0101 ? o_logic :
+                        opcode == 4'b1001 ? o_const:
                         opcode == 4'b1010 ? o_shift :
-                        {16{1'b0}};
+                        opcode == 4'b1101 ? o_hiconst:
+                        i_pc;
 endmodule
+
 
 module arithmetic_unit(input  wire [15:0] i_insn,
                input wire [15:0]  i_r1data,
@@ -175,3 +185,5 @@ assign not_wire = !i_r1data;
 // Assign result according to sub-op code
 assign o_result = i_insn[4] == 1'b0 ? (i_insn[3] == 1'b0 ? and_wire : not_wire) : (i_insn[3] == 1'b0 ? or_wire : xor_wire);
 endmodule
+
+

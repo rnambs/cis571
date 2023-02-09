@@ -1,6 +1,4 @@
-/* Names: Rahul Nambiar and Lorenzo Lucena Maguire
-   PennKey: rnambiar and llucena
-*/
+/* Rahul Nambiar (rnambiar) and Lorenzo Lucena Maguire (llucena)*/
 
 `timescale 1ns / 1ps
 `default_nettype none
