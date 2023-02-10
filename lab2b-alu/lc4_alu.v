@@ -135,7 +135,9 @@ module arithmetic_unit(input  wire [15:0] i_insn,
             .cin(carry_in),
             .sum(cla_wire)
             );
-
+      always @*
+            $display(" a: %b %b %b %b , b: %b %b %b %b , cin: %b\n, output: %b %b %b %b\n", cla_input[0][15:12], cla_input[0][11:8], cla_input[0][7:4] , cla_input[0][3:0], cla_input[1][15:12], cla_input[1][11:8], cla_input[1][7:4] , cla_input[1][3:0], carry_in, cla_wire[15:12], cla_wire[11:8], cla_wire[7:4], cla_wire[3:0]);
+      
       // DIV
       wire [15:0] div_wire;
       lc4_divider divider(
@@ -148,7 +150,8 @@ module arithmetic_unit(input  wire [15:0] i_insn,
       // MUL
       wire [15:0] mul_wire = i_r1data * i_r2data;
 
-      assign o_result = i_insn[4:3] == 2'b01 ? mul_wire :
+      assign o_result = i_insn[15:12] == 4'b0000 ? cla_wire :
+                        i_insn[4:3] == 2'b01 ? mul_wire :
                         i_insn[4:3] == 2'b11 ? div_wire :
                         cla_wire;
 endmodule
