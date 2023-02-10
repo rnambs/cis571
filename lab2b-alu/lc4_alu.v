@@ -86,39 +86,39 @@ module arithmetic_unit(input  wire [15:0] i_insn,
                output wire [15:0] remainder,
                output wire [15:0] o_result);
 
-      wire signed i_sext_imm5 = {{11{i_insn[4]}}, i_insn[4:0]};
-      wire signed i_sext_imm6 = {{10{i_insn[5]}},i_insn[5:0]};
-      wire signed i_sext_imm9 = {{6{i_insn[8]}},i_insn[8:0]};
-      wire signed i_sext_imm11 = {{5{i_insn[10]}},i_insn[10:0]};
+      wire signed [15:0] i_sext_imm5 = {{11{i_insn[4]}}, i_insn[4:0]};
+      wire signed [15:0] i_sext_imm6 = {{10{i_insn[5]}},i_insn[5:0]};
+      wire signed [15:0] i_sext_imm9 = {{7{i_insn[8]}},i_insn[8:0]};
+      wire signed [15:0] i_sext_imm11 = {{5{i_insn[10]}},i_insn[10:0]};
       
       
       // Handle Input for CLA
       
       // BR
-      wire [15:0] br_cla_input [2];
+      wire [15:0] br_cla_input [1:0];
       assign br_cla_input[0] = i_pc;
       assign br_cla_input[1] = i_sext_imm9;
       
       // ADD, SUB
-      wire [15:0] add_sub_cla_input[2] ;
+      wire [15:0] add_sub_cla_input[1:0] ;
       assign add_sub_cla_input[0] = i_r1data;
       assign add_sub_cla_input[1] = i_insn[5] == 1'b1 ? i_sext_imm5 : // ADD IMM5
-                              i_insn[4] == 1'b1 ? !i_r2data : // SUB
-                              i_r2data; // ADD
+                                    i_insn[4] == 1'b1 ? ~i_r2data : // SUB
+                                    i_r2data; // ADD
 
       // LDR, STR
-      wire[15:0] ldr_str_cla_input[2]; 
+      wire[15:0] ldr_str_cla_input[1:0]; 
       assign ldr_str_cla_input[0] = i_r1data;
       assign ldr_str_cla_input[1] = i_sext_imm6;
 
       // JMP
-      wire [15:0] jmp_cla_input[2];
+      wire [15:0] jmp_cla_input[1:0];
       assign jmp_cla_input[0] = i_pc;
       assign jmp_cla_input[1] = i_sext_imm11;
 
       // CLA INPUTS
 
-      wire [15:0] cla_input[2];
+      wire [15:0] cla_input[1:0];
 
       assign cla_input[0] =   i_insn[15:12] == 4'b0000 ? br_cla_input[0] : 
                               i_insn[15:13] == 3'b011 ? ldr_str_cla_input[0] : 
@@ -132,7 +132,8 @@ module arithmetic_unit(input  wire [15:0] i_insn,
 
 
       wire carry_in = i_insn[15:12] == 4'b0000 ? 1'b1 : // BR
-                      i_insn[15:11] == 5'b11001 ? 1'b1 : // BR
+                      i_insn[15:11] == 5'b11001 ? 1'b1 : // JMP
+                      i_insn[15:13] == 3'b011 ? 1'b0 : // LDR + STR
                       i_insn[5:4] == 2'b01 ? 1'b1 :
                       1'b0;
 
@@ -144,9 +145,7 @@ module arithmetic_unit(input  wire [15:0] i_insn,
             .cin(carry_in),
             .sum(cla_wire)
             );
-      // always @*
-      //       $display(" a: %b %b %b %b , b: %b %b %b %b , cin: %b\n, output: %b %b %b %b\n", cla_input[0][15:12], cla_input[0][11:8], cla_input[0][7:4] , cla_input[0][3:0], cla_input[1][15:12], cla_input[1][11:8], cla_input[1][7:4] , cla_input[1][3:0], carry_in, cla_wire[15:12], cla_wire[11:8], cla_wire[7:4], cla_wire[3:0]);
-      
+
       // DIV
       wire [15:0] div_wire;
       lc4_divider divider(
@@ -159,15 +158,19 @@ module arithmetic_unit(input  wire [15:0] i_insn,
       // MUL
       wire [15:0] mul_wire = i_r1data * i_r2data;
 
-      assign o_result = i_insn[15:12] == 4'b0000 ? cla_wire :
-                        i_insn[4:3] == 2'b01 ? mul_wire :
-                        i_insn[4:3] == 2'b11 ? div_wire :
+
+      wire [15:0] arith_wire =i_insn[5:3] == 3'b001  ? mul_wire : 
+                              i_insn[5:3] == 3'b011  ? div_wire : 
+                              cla_wire; 
+                              
+
+      assign o_result = i_insn[15:12] == 4'b0001 ? arith_wire :
                         cla_wire;
 endmodule
 
 module shift_unit(
-               input  wire [15:0] i_insn,
-               input wire [15:0]  i_r1data,
+               input wire [15:0] i_insn,
+               input wire signed [15:0]  i_r1data,
                input wire [15:0]  i_remainder,
                output wire [15:0] o_result);
       wire [3:0] i_imm4 = i_insn[3:0];
@@ -210,7 +213,7 @@ assign cmpi_wire = signed_rs > i_sext_imm7 ? {{15{1'b0}}, 1'b1}:
                   {16{1'b1}};
 
 //CMPIU
-wire i_imm7 = {{9{1'b0}}, i_insn[6:0]};
+wire [15:0] i_imm7 = {{9{1'b0}}, i_insn[6:0]};
 wire [15:0] cmpiu_wire = i_r1data > i_imm7 ? {{15{1'b0}}, 1'b1}: 
                         i_r1data == i_imm7 ? {16{1'b0}} : 
                         {16{1'b1}};

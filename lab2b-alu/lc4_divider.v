@@ -10,9 +10,9 @@ module lc4_divider(input  wire [15:0] i_dividend,
 
       /*** YOUR CODE HERE ***/
       // Holder bus for temporary results: 16 groups of 3 wires, 16 bits wide
-      wire [15:0] curr_remainder[16];
-      wire [15:0] curr_quotient[16];
-      wire [15:0] curr_dividend[16];
+      wire [15:0] curr_remainder[15:0];
+      wire [15:0] curr_quotient[15:0];
+      wire [15:0] curr_dividend[15:0];
       
       // First pass
       lc4_divider_one_iter d0(
