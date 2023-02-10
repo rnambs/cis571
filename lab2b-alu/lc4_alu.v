@@ -53,6 +53,9 @@ module lc4_alu(input  wire [15:0] i_insn,
       // CONST
       wire [15:0] o_const = {{7{i_insn[8]}},i_insn[8:0]};
 
+      // JSR
+      wire [15:0] o_jsr = (i_pc & 16'h8000) | ({{5{1'b0}}, i_insn[10:0]} << 4) ;
+
       // TRAP 
       wire [15:0] o_trap = {{8{1'b0}}, i_insn[7:0]} | 16'h8000;
       
@@ -64,7 +67,7 @@ module lc4_alu(input  wire [15:0] i_insn,
                         opcode == 4'b0101 ? o_logic : //LOGIC
                         i_insn[15:13] == 3'b011 ? o_arith : //LDR + STR
                         i_insn[15:11] == 5'b01000 ? i_r1data : // JSRR
-                        i_insn[15:11] == 5'b01001 ? o_arith : // JSR
+                        i_insn[15:11] == 5'b01001 ? o_jsr : // JSR
                         opcode == 4'b1000 ? i_r1data : // RTI
                         opcode == 4'b1001 ? o_const: // CONST
                         opcode == 4'b1010 ? o_shift : // SHIFTING UNIT
@@ -141,8 +144,8 @@ module arithmetic_unit(input  wire [15:0] i_insn,
             .cin(carry_in),
             .sum(cla_wire)
             );
-      always @*
-            $display(" a: %b %b %b %b , b: %b %b %b %b , cin: %b\n, output: %b %b %b %b\n", cla_input[0][15:12], cla_input[0][11:8], cla_input[0][7:4] , cla_input[0][3:0], cla_input[1][15:12], cla_input[1][11:8], cla_input[1][7:4] , cla_input[1][3:0], carry_in, cla_wire[15:12], cla_wire[11:8], cla_wire[7:4], cla_wire[3:0]);
+      // always @*
+      //       $display(" a: %b %b %b %b , b: %b %b %b %b , cin: %b\n, output: %b %b %b %b\n", cla_input[0][15:12], cla_input[0][11:8], cla_input[0][7:4] , cla_input[0][3:0], cla_input[1][15:12], cla_input[1][11:8], cla_input[1][7:4] , cla_input[1][3:0], carry_in, cla_wire[15:12], cla_wire[11:8], cla_wire[7:4], cla_wire[3:0]);
       
       // DIV
       wire [15:0] div_wire;
@@ -207,15 +210,15 @@ assign cmpi_wire = signed_rs > i_sext_imm7 ? {{15{1'b0}}, 1'b1}:
                   {16{1'b1}};
 
 //CMPIU
-wire signed i_imm7 = {{9{1'b0}}, i_insn[6:0]};
+wire i_imm7 = {{9{1'b0}}, i_insn[6:0]};
 wire [15:0] cmpiu_wire = i_r1data > i_imm7 ? {{15{1'b0}}, 1'b1}: 
                         i_r1data == i_imm7 ? {16{1'b0}} : 
                         {16{1'b1}};
 
 // Assign result`
-assign o_result = i_insn[9:8] == 2'b00 ?  cmp_wire:
-                   i_insn[9:8] == 2'b01 ?  cmpu_wire:
-                   i_insn[9:8] == 2'b10 ? cmpi_wire:
+assign o_result = i_insn[8:7] == 2'b00 ?  cmp_wire:
+                   i_insn[8:7] == 2'b01 ?  cmpu_wire:
+                   i_insn[8:7] == 2'b10 ? cmpi_wire:
                    cmpiu_wire;
 endmodule
 
@@ -232,12 +235,13 @@ wire [15:0] xor_wire;
 wire [15:0] not_wire;
 
 // Assign logical wires
-assign and_wire = i_r1data && (i_insn[5] == 1 ? {{11{i_insn[4]}}, i_insn[4:0]}: i_r2data);
+assign and_wire = i_r1data & (i_insn[5] == 1 ? {{11{i_insn[4]}}, i_insn[4:0]}: i_r2data);
 assign or_wire = i_r1data | i_r2data;
 assign xor_wire = i_r1data ^ i_r2data;
-assign not_wire = !i_r1data;
+assign not_wire = ~i_r1data;
 // Assign result according to sub-op code
-assign o_result = i_insn[4] == 1'b0 ? (i_insn[3] == 1'b0 ? and_wire : not_wire) : (i_insn[3] == 1'b0 ? or_wire : xor_wire);
+assign o_result = i_insn[5] == 1 ? and_wire : 
+                  i_insn[4] == 1'b0 ? (i_insn[3] == 1'b0 ? and_wire : not_wire) : (i_insn[3] == 1'b0 ? or_wire : xor_wire);
 endmodule
 
 
