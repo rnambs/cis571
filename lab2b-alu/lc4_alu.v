@@ -52,6 +52,9 @@ module lc4_alu(input  wire [15:0] i_insn,
 
       // CONST
       wire [15:0] o_const = {{7{i_insn[8]}},i_insn[8:0]};
+
+      // TRAP 
+      wire [15:0] o_trap = {{8{1'b0}}, i_insn[7:0]} | 16'h8000;
       
       // Output MUX -- keep on adding ternary terms as needed
       wire [3:0] opcode = i_insn[15:12];
@@ -60,12 +63,15 @@ module lc4_alu(input  wire [15:0] i_insn,
                         opcode == 4'b0010 ? o_compare : // CMP
                         opcode == 4'b0101 ? o_logic : //LOGIC
                         i_insn[15:13] == 3'b011 ? o_arith : //LDR + STR
+                        i_insn[15:11] == 5'b01000 ? i_r1data : // JSRR
+                        i_insn[15:11] == 5'b01001 ? o_arith : // JSR
+                        opcode == 4'b1000 ? i_r1data : // RTI
                         opcode == 4'b1001 ? o_const: // CONST
                         opcode == 4'b1010 ? o_shift : // SHIFTING UNIT
                         opcode == 4'b1101 ? o_hiconst: // HICONST
-                        i_insn[15:11] == 5'b01000 ? i_r1data : // JSRR
                         i_insn[15:11] == 5'b11000 ? i_r1data : // JMPR
                         i_insn[15:11] == 5'b11001 ? o_arith : // JMP - No effects
+                        opcode == 4'b1111 ? o_trap : // TRAP
                         {16{1'b1}};
 endmodule
 
