@@ -16,6 +16,7 @@ module lc4_alu(input  wire [15:0] i_insn,
       wire [15:0] o_arith, o_arith_remainder;
       arithmetic_unit arith(
             .i_insn(i_insn),
+            .i_pc(i_pc),
             .i_r1data(i_r1data),
             .i_r2data(i_r2data),
             .remainder(o_arith_remainder),
@@ -54,17 +55,23 @@ module lc4_alu(input  wire [15:0] i_insn,
       
       // Output MUX -- keep on adding ternary terms as needed
       wire [3:0] opcode = i_insn[15:12];
-      assign o_result = opcode == 4'b0001 ? o_arith : 
-                        opcode == 4'b0010 ? o_compare :
-                        opcode == 4'b0101 ? o_logic :
-                        opcode == 4'b1001 ? o_const:
-                        opcode == 4'b1010 ? o_shift :
-                        opcode == 4'b1101 ? o_hiconst:
-                        i_pc;
+      assign o_result = opcode == 4'b0000 ? o_arith : // BR
+                        opcode == 4'b0001 ? o_arith : // ARITH
+                        opcode == 4'b0010 ? o_compare : // CMP
+                        opcode == 4'b0101 ? o_logic : //LOGIC
+                        i_insn[15:13] == 3'b011 ? o_arith : //LDR + STR
+                        opcode == 4'b1001 ? o_const: // CONST
+                        opcode == 4'b1010 ? o_shift : // SHIFTING UNIT
+                        opcode == 4'b1101 ? o_hiconst: // HICONST
+                        i_insn[15:11] == 5'b01000 ? i_r1data : // JSRR
+                        i_insn[15:11] == 5'b11000 ? i_r1data : // JMPR
+                        i_insn[15:11] == 5'b11001 ? o_arith : // JMP - No effects
+                        {16{1'b1}};
 endmodule
 
 
 module arithmetic_unit(input  wire [15:0] i_insn,
+               input wire [15:0] i_pc,
                input wire [15:0]  i_r1data,
                input wire [15:0]  i_r2data,
                output wire [15:0] remainder,
@@ -72,24 +79,59 @@ module arithmetic_unit(input  wire [15:0] i_insn,
 
       wire signed i_sext_imm5 = {{11{i_insn[4]}}, i_insn[4:0]};
       wire signed i_sext_imm6 = {{10{i_insn[5]}},i_insn[5:0]};
-
-      // MUL
-      wire [15:0] mul_wire = i_r1data * i_r2data;
-      // ADD & SUB
-
-
-      wire [15:0] add_input = i_insn[15:13] == 3'b011 ? i_sext_imm6: // LDR + STR
-                              i_insn[5] == 1'b1 ? i_sext_imm5 : // ADD IMM5
+      wire signed i_sext_imm9 = {{6{i_insn[8]}},i_insn[8:0]};
+      wire signed i_sext_imm11 = {{5{i_insn[10]}},i_insn[10:0]};
+      
+      
+      // Handle Input for CLA
+      
+      // BR
+      wire [15:0] br_cla_input [2];
+      assign br_cla_input[0] = i_pc;
+      assign br_cla_input[1] = i_sext_imm9;
+      
+      // ADD, SUB
+      wire [15:0] add_sub_cla_input[2] ;
+      assign add_sub_cla_input[0] = i_r1data;
+      assign add_sub_cla_input[1] = i_insn[5] == 1'b1 ? i_sext_imm5 : // ADD IMM5
                               i_insn[4] == 1'b1 ? !i_r2data : // SUB
                               i_r2data; // ADD
 
-      wire carry_in = i_insn[5:4] == 2'b01 ? 1'b1 : 1'b0;
+      // LDR, STR
+      wire[15:0] ldr_str_cla_input[2]; 
+      assign ldr_str_cla_input[0] = i_r1data;
+      assign ldr_str_cla_input[1] = i_sext_imm6;
+
+      // JMP
+      wire [15:0] jmp_cla_input[2];
+      assign jmp_cla_input[0] = i_pc;
+      assign jmp_cla_input[1] = i_sext_imm11;
+
+      // CLA INPUTS
+
+      wire [15:0] cla_input[2];
+
+      assign cla_input[0] =   i_insn[15:12] == 4'b0000 ? br_cla_input[0] : 
+                              i_insn[15:13] == 3'b011 ? ldr_str_cla_input[0] : 
+                              i_insn[15:11] == 5'b11001 ? jmp_cla_input[0] : 
+                              add_sub_cla_input[0];
+
+      assign cla_input[1] =   i_insn[15:12] == 4'b0000 ? br_cla_input[1] : 
+                              i_insn[15:13] == 3'b011 ? ldr_str_cla_input[1] : 
+                              i_insn[15:11] == 5'b11001 ? jmp_cla_input[1] : 
+                              add_sub_cla_input[1];
+
+
+      wire carry_in = i_insn[15:12] == 4'b0000 ? 1'b1 : // BR
+                      i_insn[15:11] == 5'b11001 ? 1'b1 : // BR
+                      i_insn[5:4] == 2'b01 ? 1'b1 :
+                      1'b0;
 
       wire [15:0] cla_wire;
       
       cla16 cla(
-            .a(i_r1data),
-            .b(add_input),
+            .a(cla_input[0]),
+            .b(cla_input[1]),
             .cin(carry_in),
             .sum(cla_wire)
             );
@@ -102,6 +144,9 @@ module arithmetic_unit(input  wire [15:0] i_insn,
             .o_remainder(remainder),
             .o_quotient(div_wire)
       );
+
+      // MUL
+      wire [15:0] mul_wire = i_r1data * i_r2data;
 
       assign o_result = i_insn[4:3] == 2'b01 ? mul_wire :
                         i_insn[4:3] == 2'b11 ? div_wire :
