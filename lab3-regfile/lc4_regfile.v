@@ -1,5 +1,4 @@
-/* TODO: Names of all group members
- * TODO: PennKeys of all group members
+/* Rahul Nambiar (rnambiar) and Lorenzo Lucena Maguire (llucena)
  *
  * lc4_regfile.v
  * Implements an 8-register register file parameterized on word size.
