@@ -65,7 +65,7 @@ if {[get_file_contents .step] == "synthesis"} {
     exit
 }
 
-# Now, run implementation and generate a bitstream
+# Now, run implementation and generate a bitstream 
 
 # run place & route
 opt_design
