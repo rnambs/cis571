@@ -68,7 +68,51 @@ module lc4_processor
     * TODO: INSERT YOUR CODE HERE *
     *******************************/
 
+   // Control Signals
+   wire [ 2:0] r1_sel;             // rs selector
+   wire        r1re;               // does this instruction read from rs?
+   wire [ 2:0] r2_sel;              // rt selector 
+   wire        r2re;               // does this instruction read from rt?
+   wire [ 2:0] rd_sel;               // rd
+   wire        regfile_we;         // does this instruction write to rd?
+   wire        nzp_we;             // does this instruction write the NZP bits?
+   wire        select_pc_plus_one; // write PC+1 to the regfile?
+   wire        is_load;            // is this a load instruction?
+   wire        is_store;           // is this a store instruction?
+   wire        is_branch;          // is this a branch instruction?
+   wire        is_control_insn;    // is this a control instruction
 
+
+   // Decode signals
+   lc4_decoder decoder (
+                  .insn(i_cur_insn),                      // instruction
+                  .r1sel(r1_sel),                         // rs
+                  .r1re(r1re),                            // does this instruction read from rs?
+                  .r2sel(r2_sel),                         // rt
+                  .r2re(r2re),                            // does this instruction read from rt?
+                  .wsel(rd_sel),                          // rd
+                  .regfile_we(regfile_we),                // does this instruction write to rd?
+                  .nzp_we(nzp_we),                        // does this instruction write the NZP bits?
+                  .select_pc_plus_one(select_pc_plus_one),// write PC+1 to the regfile?
+                  .is_load(is_load),                      // is this a load instruction?
+                  .is_store(is_store),                    // is this a store instruction?
+                  .is_branch(is_branch),                  // is this a branch instruction?
+                  .is_control_insn(is_control_insn)       // is this a control instruction (JSR, JSRR, RTI, JMPR, JMP, TRAP)?
+                   );
+
+   wire[15:0] o_rs_data, o_rt_data;
+   regfile regfile(
+      .clk(clk),
+      .gwe(gwe),
+      .rst(rst),
+      .i_rs(r1_sel),
+      .o_rs_data(o_rs_data),
+      .i_rt(r2_sel),
+      .o_rt_data(o_rt_data),
+      .i_rd(rd_sel),
+      .i_wdata(),
+      .i_rd_we(regfile_we)
+   );
 
    /* Add $display(...) calls in the always block below to
     * print out debug information at the end of every cycle.
