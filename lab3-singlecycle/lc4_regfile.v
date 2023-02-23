@@ -63,5 +63,6 @@ module lc4_regfile #(parameter n = 16)
                 i_rt == 3'b100 ? o_register[4]:
                 i_rt == 3'b101 ? o_register[5]:
                 i_rt == 3'b110 ? o_register[6]: o_register[7];
-
 endmodule
+
+

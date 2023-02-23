@@ -68,6 +68,8 @@ module lc4_processor
     * TODO: INSERT YOUR CODE HERE *
     *******************************/
 
+   assign o_cur_pc = pc;
+
    // Control Signals
    wire [ 2:0] r1_sel;             // rs selector
    wire        r1re;               // does this instruction read from rs?
@@ -100,19 +102,83 @@ module lc4_processor
                   .is_control_insn(is_control_insn)       // is this a control instruction (JSR, JSRR, RTI, JMPR, JMP, TRAP)?
                    );
 
-   wire[15:0] o_rs_data, o_rt_data;
-   regfile regfile(
+   // Register file
+
+   wire[15:0] o_r1_data, o_r2_data, i_reg_data; // Output of the two registers (rs, rt) and register input
+
+   lc4_regfile #(.n(16)) reg_lc4(
       .clk(clk),
       .gwe(gwe),
       .rst(rst),
       .i_rs(r1_sel),
-      .o_rs_data(o_rs_data),
+      .o_rs_data(o_r1_data),
       .i_rt(r2_sel),
-      .o_rt_data(o_rt_data),
+      .o_rt_data(o_r2_data),
       .i_rd(rd_sel),
-      .i_wdata(),
+      .i_wdata(i_reg_data),
       .i_rd_we(regfile_we)
    );
+
+   // ALU
+
+   wire[15:0] o_alu_data;
+
+   lc4_alu alu(.i_insn(i_cur_insn),
+               .i_pc(pc),
+               .i_r1data(o_r1_data),
+               .i_r2data(o_r2_data),
+               .o_result(o_alu_data)
+               );
+
+   // Data Memory
+   
+   assign o_dmem_addr = o_alu_data;
+   assign o_dmem_towrite = o_r2_data;
+   assign o_dmem_we = is_store;
+
+   // Control signals logic
+
+   wire[15:0] pc_plus_one;
+   cla16 cla(
+      .a(pc),
+      .b({{15{1'b0}}, 1'b1}),
+      .cin(1'b0),
+      .sum(pc_plus_one)
+      );
+   
+   // NZP Register
+
+   wire [2:0] i_nzp = o_alu_data[15] == 1'b1 ? 3'b100:
+                      (o_alu_data) == 16'd0 ? 3'b010:
+                      3'b001;
+   wire [2:0] o_nzp;
+   Nbit_reg #(3, 3'b000) nzp_reg (.in(i_nzp), .out(o_nzp), .clk(clk), .we(nzp_we), .gwe(gwe), .rst(rst));
+   wire o_nzp_test = (i_cur_insn[11] & o_nzp[2]) | (i_cur_insn[10] & o_nzp[1]) | (i_cur_insn[9] & o_nzp[0]);
+
+   wire pc_branch = o_nzp_test == 1'b1 ? o_alu_data : pc_plus_one;
+   
+   assign next_pc = is_branch == 1'b1 ? pc_branch: 
+                     is_control_insn == 1'b1 ? o_alu_data:
+                     pc_plus_one;
+   
+
+   // Register Input Mux
+   assign i_reg_data = select_pc_plus_one == 1'b1 ? pc_plus_one : 
+                       is_load == 1'b1 ? i_cur_dmem_data : 
+                       o_alu_data;
+
+   // Assign test wires
+   assign test_stall =  1'b0;       // Testbench: is this a stall cycle? (don't compare the test values)
+   assign test_cur_pc = pc;       // Testbench: program counter
+   assign test_cur_insn =  i_cur_insn;    // Testbench: instruction bits
+   assign test_regfile_we = regfile_we;    // Testbench: register file write enable
+   assign test_regfile_wsel = rd_sel;  // Testbench: which register to write in the register file 
+   assign test_regfile_data = i_reg_data;  // Testbench: value to write into the register file
+   assign test_nzp_we = nzp_we;        // Testbench: NZP condition codes write enable
+   assign test_nzp_new_bits = i_nzp;  // Testbench: value to write to NZP bits
+   assign test_dmem_we = o_dmem_we;       // Testbench: data memory write enable
+   assign test_dmem_addr = o_dmem_addr;     // Testbench: address to read/write memory
+   assign test_dmem_data = o_dmem_towrite;     // Testbench: value read/writen from/to memory
 
    /* Add $display(...) calls in the always block below to
     * print out debug information at the end of every cycle.
