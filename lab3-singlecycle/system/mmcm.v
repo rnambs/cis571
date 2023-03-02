@@ -136,7 +136,7 @@ wire clk_in2_design_1_clk_wiz_0_0;
     // LAB3: change your clock frequency by editing this value. Resulting
     // frequency is (1GHz / CLKOUT0_DIVIDE_F). Note that ONLY values that are
     // multiples of 0.125 are valid.
-    .CLKOUT0_DIVIDE_F     (64),
+    .CLKOUT0_DIVIDE_F     (70),
 
     
     .CLKOUT0_PHASE        (0.000),
