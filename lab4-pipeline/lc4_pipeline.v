@@ -51,9 +51,12 @@ module lc4_processor
    Nbit_reg #(16, 16'h8200) f_pc_reg (.in(next_pc), .out(f_pc), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
    
    assign o_cur_pc = f_pc;
+
+   wire [1:0] f_stall;
+   assign f_stall = 2'b0;
+
    /**
       DECODE
-
       Input: PC, Instruction (i_cur_insn)
    */
 
@@ -120,11 +123,14 @@ module lc4_processor
       .i_rd_we(d_regfile_we)
       );
 
+   wire [1:0] d_stall, d_stall_next;
+   Nbit_reg #(2, 2'b10) d_stall_reg (.in(d_stall_next), .out(d_stall), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
+   assign d_stall_next = f_stall;
+
 
    /**
       
       EXECUTE
-
       INPUT: 
          - PC, INSN, R1_DATA, R2_DATA
          - CONTROL SIGNALS:
@@ -165,9 +171,12 @@ module lc4_processor
       .o_result(x_o_alu_data)
       );
 
+   wire [1:0] x_stall, x_stall_next;
+   Nbit_reg #(2, 2'b10) x_stall_reg (.in(x_stall_next), .out(x_stall), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
+   assign x_stall_next = d_stall;
+
 
    /**
-
       MEMORY
       
       INPUT: 
@@ -182,7 +191,6 @@ module lc4_processor
                 x_is_store; // is this is a store instruction?
                 x_is_branch; // is this a branch instruction?
                 x_is_control_insn; // is this a control instruction?
-
    **/
 
    // Create registers for inputs for memory stage
@@ -210,10 +218,13 @@ module lc4_processor
    assign o_dmem_towrite = m_r2_data;
    assign o_dmem_we = m_is_store;
 
+   wire [1:0] m_stall, m_stall_next;
+   Nbit_reg #(2, 2'b10) m_stall_reg (.in(m_stall_next), .out(m_stall), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
+   assign m_stall_next = x_stall;
+
 
 
    /**
-
       WRITEBACK
       
       INPUT: 
@@ -228,7 +239,6 @@ module lc4_processor
                m_is_store; // is this is a store instruction?
                m_is_branch; // is this a branch instruction?
                m_is_control_insn; // is this a control instruction?
-
    **/
 
    wire [15:0] w_pc, w_insn, w_alu_data, w_i_curr_dmem_data;
@@ -274,11 +284,15 @@ module lc4_processor
    assign pc_branch = w_is_control_insn | (o_nzp_test & w_is_branch);
 
    assign next_pc = pc_branch ? w_alu_data : pc_plus_one;
+
+   wire [1:0] w_stall, w_stall_next;
+   Nbit_reg #(2, 2'b10) w_stall_reg (.in(w_stall_next), .out(w_stall), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
+   assign w_stall_next = m_stall;
    
 
    
    // Assign test wires
-   assign test_stall = 2'b00; //Testbench: is this a stall cycle? (don't compare the test values)
+   assign test_stall = w_stall; //Testbench: is this a stall cycle? (don't compare the test values)
    assign test_cur_pc = w_pc; // Testbench: program counter
    assign test_cur_insn = w_insn; // Testbench: instruction bits
    assign test_regfile_we = w_regfile_we; // Testbench: register file write enable
