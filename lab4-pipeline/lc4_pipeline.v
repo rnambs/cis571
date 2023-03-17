@@ -50,7 +50,7 @@ module lc4_processor
    // Program counter register, starts at 8200h at bootup
    Nbit_reg #(16, 16'h8200) f_pc_reg (.in(next_pc), .out(f_pc), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
    
-
+   assign o_cur_pc = f_pc;
    /**
       DECODE
 
@@ -83,7 +83,7 @@ module lc4_processor
    wire d_is_store; // is this is a store instruction?
    wire d_is_branch; // is this a branch instruction?
    wire d_is_control_insn; // is this a control instruction?
-
+   wire [8:0] d_control_signals = {d_r1re, d_r2re, d_regfile_we, d_nzp_we, d_select_pc_plus_one,  d_is_load, d_is_store, d_is_branch, d_is_control_insn};
 
 
    
@@ -142,7 +142,7 @@ module lc4_processor
    // Create registers for inputs for execute stage
    wire [15:0] x_pc, x_insn, x_o_r1_data, x_o_r2_data;
    // Program counter register, starts at 8200h at bootup
-   Nbit_reg #(16, 16'h0000) x_pc_reg (.in(d_pc), .out(x_pc), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'h8200) x_pc_reg (.in(d_pc), .out(x_pc), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
    // Fetched instruction register, starts at 0000h at bootup
    Nbit_reg #(16, 16'h0000) x_insn_reg (.in(d_insn), .out(x_insn), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
    // R1 DATA, starts at 0000h at bootup
@@ -151,11 +151,11 @@ module lc4_processor
    Nbit_reg #(16, 16'h0000) x_r2_data_reg (.in(d_o_r2_data), .out(x_o_r2_data), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
 
    // CONTROL SIGNALS
-   wire x_r1re, x_r2re, x_regfile_we, x_nzp_we, x_select_pc_plus_one,  x_is_load, x_is_store, x_is_branch, x_is_control_insn; 
-   wire [8:0] x_control_signals = {x_r1re, x_r2re, x_regfile_we, x_nzp_we, x_select_pc_plus_one,  x_is_load, x_is_store, x_is_branch, x_is_control_insn};
-   wire [8:0] d_control_signals = {d_r1re, d_r2re, d_regfile_we, d_nzp_we, d_select_pc_plus_one,  d_is_load, d_is_store, d_is_branch, d_is_control_insn};
+   
+   wire [8:0] x_control_signals;
    Nbit_reg #(9, {9{1'b0}}) x_control_signals_reg (.in(d_control_signals), .out(x_control_signals), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
-
+   wire x_r1re, x_r2re, x_regfile_we, x_nzp_we, x_select_pc_plus_one,  x_is_load, x_is_store, x_is_branch, x_is_control_insn;
+   assign {x_r1re, x_r2re, x_regfile_we, x_nzp_we, x_select_pc_plus_one,  x_is_load, x_is_store, x_is_branch, x_is_control_insn} = x_control_signals;
    // ALU         
    wire [15:0] x_o_alu_data;
    lc4_alu alu(.i_insn(x_insn), 
@@ -189,7 +189,7 @@ module lc4_processor
 
    wire [15:0] m_pc, m_insn, m_alu_data, m_r2_data;
    // Program counter register, starts at 8200h at bootup
-   Nbit_reg #(16, 16'h0000) m_pc_reg (.in(x_pc), .out(m_pc), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'h8200) m_pc_reg (.in(x_pc), .out(m_pc), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
    // Fetched instruction register, starts at 0000h at bootup
    Nbit_reg #(16, 16'h0000) m_insn_reg (.in(x_insn), .out(m_insn), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
    // ALU DATA, starts at 0000h at bootup
@@ -198,10 +198,11 @@ module lc4_processor
    Nbit_reg #(16, 16'h0000) m_r2_data_reg (.in(x_o_r2_data), .out(m_r2_data), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
 
    // CONTROL SIGNALS
-   wire m_r1re, m_r2re, m_regfile_we, m_nzp_we, m_select_pc_plus_one,  m_is_load, m_is_store, m_is_branch, m_is_control_insn; 
-   wire [8:0] m_control_signals = { m_r1re, m_r2re, m_regfile_we, m_nzp_we, m_select_pc_plus_one,  m_is_load, m_is_store, m_is_branch, m_is_control_insn};
+   wire [8:0] m_control_signals;
    Nbit_reg #(9, {9{1'b0}}) m_control_signals_reg (.in(x_control_signals), .out(m_control_signals), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
 
+   wire m_r1re, m_r2re, m_regfile_we, m_nzp_we, m_select_pc_plus_one,  m_is_load, m_is_store, m_is_branch, m_is_control_insn; 
+   assign {m_r1re, m_r2re, m_regfile_we, m_nzp_we, m_select_pc_plus_one,  m_is_load, m_is_store, m_is_branch, m_is_control_insn} = m_control_signals;
 
 
    // MEMORY
@@ -232,7 +233,7 @@ module lc4_processor
 
    wire [15:0] w_pc, w_insn, w_alu_data, w_i_curr_dmem_data;
    // Program counter register, starts at 8200h at bootup
-   Nbit_reg #(16, 16'h0000) w_pc_reg (.in(m_pc), .out(w_pc), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'h8200) w_pc_reg (.in(m_pc), .out(w_pc), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
    // Fetched instruction register, starts at 0000h at bootup
    Nbit_reg #(16, 16'h0000) w_insn_reg (.in(m_insn), .out(w_insn), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
    // ALU DATA, starts at 0000h at bootup
@@ -241,10 +242,11 @@ module lc4_processor
    Nbit_reg #(16, 16'h0000) w_r2_data_reg (.in(i_cur_dmem_data), .out(w_i_curr_dmem_data), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
 
    // CONTROL SIGNALS
-   wire w_r1re, w_r2re, w_regfile_we, w_nzp_we, w_select_pc_plus_one,  w_is_load, w_is_store, w_is_branch, w_is_control_insn; 
-   wire [8:0] w_control_signals = { w_r1re, w_r2re, w_regfile_we, w_nzp_we, w_select_pc_plus_one,  w_is_load, w_is_store, w_is_branch, w_is_control_insn};
+   
+   wire [8:0] w_control_signals;
    Nbit_reg #(9, {9{1'b0}}) w_control_signals_reg (.in(m_control_signals), .out(w_control_signals), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
-
+   wire w_r1re, w_r2re, w_regfile_we, w_nzp_we, w_select_pc_plus_one,  w_is_load, w_is_store, w_is_branch, w_is_control_insn; 
+   assign { w_r1re, w_r2re, w_regfile_we, w_nzp_we, w_select_pc_plus_one,  w_is_load, w_is_store, w_is_branch, w_is_control_insn} = w_control_signals;
 
    // Control signals logic
    wire [15:0] pc_plus_one;
@@ -253,6 +255,11 @@ module lc4_processor
       .cin(1'b1), 
       .sum(pc_plus_one)
       );
+
+
+   // Register Input Mux
+   assign d_i_reg_data = (w_select_pc_plus_one == 1'b1) ? pc_plus_one : (w_is_load == 1'b1) ? w_i_curr_dmem_data : w_alu_data;
+
       
    // NZP Register and Branch stuff (issues here)
    wire [2:0] i_nzp =  ($signed(d_i_reg_data) < 0) ? 100 :
@@ -267,11 +274,9 @@ module lc4_processor
    assign pc_branch = w_is_control_insn | (o_nzp_test & w_is_branch);
 
    assign next_pc = pc_branch ? w_alu_data : pc_plus_one;
-   assign o_cur_pc = next_pc;
+   
 
-   // Register Input Mux
-   assign d_i_reg_data = (w_select_pc_plus_one == 1'b1) ? pc_plus_one : (w_is_load == 1'b1) ? w_i_curr_dmem_data : w_alu_data;
-
+   
    // Assign test wires
    assign test_stall = 2'b00; //Testbench: is this a stall cycle? (don't compare the test values)
    assign test_cur_pc = w_pc; // Testbench: program counter
@@ -284,11 +289,6 @@ module lc4_processor
    assign test_dmem_we = w_is_store; // Testbench: data memory write enable
    assign test_dmem_addr = o_dmem_addr; // Testbench: address to read/write memory
    assign test_dmem_data = (w_is_load == 1'b1) ? w_i_curr_dmem_data : (w_is_store == 1'b1) ? o_dmem_towrite : 16'b0; // Testbench: value read/writen from/to memory
-
-   
-
-
-
 
 
 
@@ -303,7 +303,23 @@ module lc4_processor
     */
 `ifndef NDEBUG
    always @(posedge gwe) begin
-      $display("%d %h %h %h %h %h", $time, f_pc, d_pc, x_pc, m_pc, test_cur_pc);
+      $display("%d PC: f: %h, d: %h, x: %h, m: %h, w: %h - next_pc: %h", $time, f_pc, d_pc, x_pc, m_pc, w_pc, next_pc);
+      $display("%d INSN: f: %h, d: %h, x: %h, m: %h, w: %h", $time, i_cur_insn, d_insn, x_insn, m_insn, w_insn);
+      
+      // $display("%d m_alu: %h, w_alu: %h, pc_plus_one: %h, pc_branch: %b", 
+      // $time, 
+      // m_alu_data, 
+      // w_alu_data, 
+      // pc_plus_one, 
+      // pc_branch);
+
+      // // CONTROL SIGNALS
+      // $display("%d d_r1re %b, d_r2re %b, d_regfile_we %b, d_nzp_we %b, d_select_pc_plus_one %b,  d_is_load %b, d_is_store %b, d_is_branch %b, d_is_control_insn %b", 
+      // $time, 
+      // d_r1re, d_r2re, d_regfile_we, d_nzp_we, d_select_pc_plus_one,  d_is_load, d_is_store, d_is_branch, d_is_control_insn);
+      // $display("%d x_r1re %b, x_r2re %b, x_regfile_we %b, x_nzp_we %b, x_select_pc_plus_one %b,  x_is_load %b, x_is_store %b, x_is_branch %b, x_is_control_insn %b", 
+      // $time, 
+      // x_r1re, x_r2re, x_regfile_we, x_nzp_we, x_select_pc_plus_one,  x_is_load, x_is_store, x_is_branch, x_is_control_insn);
       if (o_dmem_we)
          $display("%d STORE %h <= %h", $time, o_dmem_addr, o_dmem_towrite);
 
