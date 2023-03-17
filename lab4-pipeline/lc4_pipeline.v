@@ -1,4 +1,4 @@
-/* TODO: name and PennKeys of all group members here */
+/* Lorenzo Lucena Maguire (llucena) and Rahul Nambiar (rnambiar) */
 
 `timescale 1ns / 1ps
 
