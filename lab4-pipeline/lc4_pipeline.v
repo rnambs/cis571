@@ -135,9 +135,9 @@ module lc4_processor
 
    //BYPASS WD LOGIC
    wire [15:0] d_out_r1_data, d_out_r2_data;
-   assign d_out_r1_data = (w_rd_sel == d_r1_sel && w_regfile_we) ? w_alu_data : d_o_r2_data;
+   assign d_out_r1_data = (~test_stall && w_rd_sel == d_r1_sel && w_regfile_we) ? w_alu_data : d_o_r1_data;
 
-   assign d_out_r2_data = (w_rd_sel == d_r2_sel & w_regfile_we ) ? w_alu_data : d_o_r2_data;
+   assign d_out_r2_data = (~test_stall && w_rd_sel == d_r2_sel && w_regfile_we ) ? w_alu_data : d_o_r2_data;
 
 
    /**
@@ -191,12 +191,12 @@ module lc4_processor
                      x_o_r2_data;
 
    // ALU         
-   wire [15:0] x_o_alu_data;
+   wire [15:0] x_alu_data;
    lc4_alu alu(.i_insn(x_insn), 
       .i_pc(x_pc), 
       .i_r1data(i_r1_alu), 
       .i_r2data(i_r2_alu),
-      .o_result(x_o_alu_data)
+      .o_result(x_alu_data)
       );
 
    /**
@@ -224,7 +224,7 @@ module lc4_processor
    // Fetched instruction register, starts at 0000h at bootup
    Nbit_reg #(16, 16'h0000) m_insn_reg (.in(x_insn), .out(m_insn), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
    // ALU DATA, starts at 0000h at bootup
-   Nbit_reg #(16, 16'h0000) m_alu_data_reg (.in(x_o_alu_data), .out(m_alu_data), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'h0000) m_alu_data_reg (.in(x_alu_data), .out(m_alu_data), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
    // R2 DATA, starts at 0000h at bootup
    Nbit_reg #(16, 16'h0000) m_r2_data_reg (.in(x_o_r2_data), .out(m_r2_data), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
 
@@ -246,8 +246,6 @@ module lc4_processor
    assign o_dmem_addr = (m_is_load == 1'b1) ? m_alu_data : (m_is_store == 1'b1) ? m_alu_data : 16'b0;
    assign o_dmem_towrite = m_r2_data;
    assign o_dmem_we = m_is_store;
-
-
 
    /**
       WRITEBACK
@@ -346,7 +344,10 @@ module lc4_processor
    always @(posedge gwe) begin
       $display("%d PC: f: %h, d: %h, x: %h, m: %h, w: %h - next_pc: %h", $time, f_pc, d_pc, x_pc, m_pc, w_pc, next_pc);
       $display("%d INSN: f: %h, d: %h, x: %h, m: %h, w: %h", $time, i_cur_insn, d_insn, x_insn, m_insn, w_insn);
-      
+      $display("%d ALU INPUT: R%d:%d, R%d:%d, DEST: R%d, OUTPUT: %d", $time,x_r1_sel, i_r1_alu, x_r2_sel, i_r2_alu, x_rd_sel, x_alu_data);
+      $display("%d WRITEBACK: R%d %d we: %b", $time, w_rd_sel, d_i_reg_data, w_regfile_we);
+      $display("%d REG OUTPUT: R%d:%d, R%d:%d", $time, d_r1_sel, d_o_r1_data, d_r2_sel, d_o_r2_data);
+      $display("");
       // $display("%d m_alu: %h, w_alu: %h, pc_plus_one: %h, pc_branch: %b", 
       // $time, 
       // m_alu_data, 
