@@ -206,7 +206,6 @@ module lc4_processor
 
    /**
       MEMORY
-
       INPUT: 
       - PC, INSN, R2_DATA, ALU_DATA
          - CONTROL SIGNALS:
