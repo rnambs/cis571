@@ -1,5 +1,6 @@
 /* Lorenzo Lucena Maguire (llucena) and Rahul Nambiar (rnambiar) */
 
+// NOT TOO SURE WHATS WRONG - I THINK NZP?
 `timescale 1ns / 1ps
 
 // disable implicit wire declaration
@@ -145,7 +146,7 @@ module lc4_processor
    wire first_stall_logic, temp_stall_logic;
    assign temp_stall_logic = ((xec_rd_sel == d_r1_sel & d_r1re == 1'b1) | (xec_rd_sel == d_r2_sel & d_r2re == 1'b1 & d_is_store == 1'b0));
    assign first_stall_logic = (xec_is_load == 1'b1) & temp_stall_logic ? 1'b1 : 1'b0;
-
+  
    wire second_stall_logic;
    assign second_stall_logic = (xec_is_load == 1'b1 & (d_is_branch))  | first_stall_logic;
    
