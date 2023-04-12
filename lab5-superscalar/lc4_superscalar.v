@@ -75,126 +75,126 @@ module lc4_processor(input wire         clk,             // main clock
       DECODE
       Input: PC, Instruction (i_cur_insn_A)
    */
-   wire [15:0]   d_pc_Apple, d_pc_Apple_plus_one, d_insn_Apple;
-   wire d_pc_Apple_reg_we = !(decode_stall_logic_complete == 2'b11);
+   wire [15:0]   d_pc_A, d_pc_A_plus_one, d_insn_A;
+   wire d_pc_A_reg_we = !(decode_stall_logic_complete == 2'b11);
 
    // Program counter register, starts at 8200h at bootup
-   Nbit_reg #(16, 16'h8200) d_pc_Apple_reg (.in(f_pc), .out(d_pc_Apple), .clk(clk), .we(d_pc_Apple_reg_we), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'h8200) d_pc_A_reg (.in(f_pc), .out(d_pc_A), .clk(clk), .we(d_pc_A_reg_we), .gwe(gwe), .rst(rst));
 
    //PC+1 LOGIC
-   Nbit_reg #(16, 16'h8200) d_pc_Apple_plus_one_reg (.in(next_pc), .out(d_pc_Apple_plus_one), .clk(clk), .we(d_pc_Apple_reg_we), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'h8200) d_pc_A_plus_one_reg (.in(next_pc), .out(d_pc_A_plus_one), .clk(clk), .we(d_pc_A_reg_we), .gwe(gwe), .rst(rst));
 
    // Fetched instruction register, starts at 0000h at bootup
-   Nbit_reg #(16, 16'b0) d_insn_reg (.in(i_cur_insn_A), .out(d_insn_Apple), .clk(clk), .we(d_pc_Apple_reg_we), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'b0) d_insn_reg (.in(i_cur_insn_A), .out(d_insn_A), .clk(clk), .we(d_pc_A_reg_we), .gwe(gwe), .rst(rst));
 
    // Control Signals
-   wire d_r1re_Apple, d_r2re_Apple, d_regfile_we_Apple, d_nzp_we_Apple, d_select_pc_plus_one_Apple, d_is_load_Apple, d_is_store_Apple, d_is_branch_Apple, d_is_control_insn_Apple;
-   wire [2:0] d_r1_sel_Apple, d_r2_sel_Apple, d_rd_sel_Apple;
+   wire d_r1re_A, d_r2re_A, d_regfile_we_A, d_nzp_we_A, d_select_pc_plus_one_A, d_is_load_A, d_is_store_A, d_is_branch_A, d_is_control_insn_A;
+   wire [2:0] d_r1_sel_A, d_r2_sel_A, d_rd_sel_A;
 
    // Decode signals
    lc4_decoder decoder(
-                  .insn(d_insn_Apple), //instruction
-                  .r1sel(d_r1_sel_Apple), //rs
-                  .r1re(d_r1re_Apple), // does this instruction read from rs?
-                  .r2sel(d_r2_sel_Apple), // rt
-                  .r2re(d_r2re_Apple), // does this instruction read from rt?
-                  .wsel(d_rd_sel_Apple), // rd
-                  .regfile_we(d_regfile_we_Apple), // does this instruction write to rd?
-                  .nzp_we(d_nzp_we_Apple), // does this instruction write to NZP bits?
-                  .select_pc_plus_one(d_select_pc_plus_one_Apple), // write PC+1 to regfile?
-                  .is_load(d_is_load_Apple), // is this a load instruction?
-                  .is_store(d_is_store_Apple), // is this a store instruction?
-                  .is_branch(d_is_branch_Apple), // is this a branch instruction?
-                  .is_control_insn(d_is_control_insn_Apple) // is this a control instruction?
+                  .insn(d_insn_A), //instruction
+                  .r1sel(d_r1_sel_A), //rs
+                  .r1re(d_r1re_A), // does this instruction read from rs?
+                  .r2sel(d_r2_sel_A), // rt
+                  .r2re(d_r2re_A), // does this instruction read from rt?
+                  .wsel(d_rd_sel_A), // rd
+                  .regfile_we(d_regfile_we_A), // does this instruction write to rd?
+                  .nzp_we(d_nzp_we_A), // does this instruction write to NZP bits?
+                  .select_pc_plus_one(d_select_pc_plus_one_A), // write PC+1 to regfile?
+                  .is_load(d_is_load_A), // is this a load instruction?
+                  .is_store(d_is_store_A), // is this a store instruction?
+                  .is_branch(d_is_branch_A), // is this a branch instruction?
+                  .is_control_insn(d_is_control_insn_A) // is this a control instruction?
                   );
 
    // STALL LOGIC
-   wire [1:0] d_stall_Apple;  
-   Nbit_reg #(2, 2'b10) d_stall_Apple_reg (.in(f_stall), .out(d_stall_Apple), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
+   wire [1:0] d_stall_A;  
+   Nbit_reg #(2, 2'b10) d_stall_A_reg (.in(f_stall), .out(d_stall_A), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
 
 
    // THIS IS THE DECODE FOR PIPE B
-   wire [15:0]   d_pc_Banana, d_pc_Banana_plus_one, d_insn_Banana;
+   wire [15:0]   d_pc_B, d_pc_B_plus_one, d_insn_B;
 
    // Program counter register, starts at 8200h at bootup
-   Nbit_reg #(16, 16'h8200) d_pc_Banana_reg (.in(f_pc), .out(d_pc_Banana), .clk(clk), .we(d_pc_Banana_reg_we), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'h8200) d_pc_B_reg (.in(f_pc), .out(d_pc_B), .clk(clk), .we(d_pc_B_reg_we), .gwe(gwe), .rst(rst));
 
-   wire d_pc_Banana_reg_we = !(decode_stall_logic_complete == 2'b11);
+   wire d_pc_B_reg_we = !(decode_stall_logic_complete == 2'b11);
 
-   wire [15:0] pc_plus_one_Banana;
-   cla16 add_pc_B_decode(.a(o_cur_pc), .b(16'b0), .cin(1'b1), .sum(pc_plus_one_Banana));
+   wire [15:0] pc_plus_one_B;
+   cla16 add_pc_B_decode(.a(o_cur_pc), .b(16'b0), .cin(1'b1), .sum(pc_plus_one_B));
 
    // Fetched instruction register, starts at 0000h at bootup
-   Nbit_reg #(16, 16'b0) d_insn_reg_Banana (.in(i_cur_insn_B), .out(d_insn_Banana), .clk(clk), .we(d_pc_Banana_reg_we), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'b0) d_insn_reg_B (.in(i_cur_insn_B), .out(d_insn_B), .clk(clk), .we(d_pc_B_reg_we), .gwe(gwe), .rst(rst));
    
    // Control Signals
-   wire d_r1re_Banana, d_r2re_Banana, d_regfile_we_Banana, d_nzp_we_Banana, d_select_pc_plus_one_Banana, d_is_load_Banana, d_is_store_Banana, d_is_branch_Banana, d_is_control_insn_Banana;
-   wire [2:0] d_r1_sel_Banana, d_r2_sel_Banana, d_rd_sel_Banana;
+   wire d_r1re_B, d_r2re_B, d_regfile_we_B, d_nzp_we_B, d_select_pc_plus_one_B, d_is_load_B, d_is_store_B, d_is_branch_B, d_is_control_insn_B;
+   wire [2:0] d_r1_sel_B, d_r2_sel_B, d_rd_sel_B;
 
    // Decode signals
    lc4_decoder decoder(
-                  .insn(d_insn_Banana), //instruction
-                  .r1sel(d_r1_sel_Banana), //rs
-                  .r1re(d_r1re_Banana), // does this instruction read from rs?
-                  .r2sel(d_r2_sel_Banana), // rt
-                  .r2re(d_r2re_Banana), // does this instruction read from rt?
-                  .wsel(d_rd_sel_Banana), // rd
-                  .regfile_we(d_regfile_we_Banana), // does this instruction write to rd?
-                  .nzp_we(d_nzp_we_Banana), // does this instruction write to NZP bits?
-                  .select_pc_plus_one(d_select_pc_plus_one_Banana), // write PC+1 to regfile?
-                  .is_load(d_is_load_Banana), // is this a load instruction?
-                  .is_store(d_is_store_Banana), // is this a store instruction?
-                  .is_branch(d_is_branch_Banana), // is this a branch instruction?
-                  .is_control_insn(d_is_control_insn_Banana) // is this a control instruction?
+                  .insn(d_insn_B), //instruction
+                  .r1sel(d_r1_sel_B), //rs
+                  .r1re(d_r1re_B), // does this instruction read from rs?
+                  .r2sel(d_r2_sel_B), // rt
+                  .r2re(d_r2re_B), // does this instruction read from rt?
+                  .wsel(d_rd_sel_B), // rd
+                  .regfile_we(d_regfile_we_B), // does this instruction write to rd?
+                  .nzp_we(d_nzp_we_B), // does this instruction write to NZP bits?
+                  .select_pc_plus_one(d_select_pc_plus_one_B), // write PC+1 to regfile?
+                  .is_load(d_is_load_B), // is this a load instruction?
+                  .is_store(d_is_store_B), // is this a store instruction?
+                  .is_branch(d_is_branch_B), // is this a branch instruction?
+                  .is_control_insn(d_is_control_insn_B) // is this a control instruction?
                   );
 
-   wire [15:0] d_o_r1_data_Apple, d_o_r2_data_Apple, d_o_r1_data_Banana, d_o_r2_data_Banana;
-   lc4_regfile_ss #(16) d_reg_lc4(.clk(clk), .gwe(gwe), .rst(rst), .i_rs_A(d_r1sel_Apple), .o_rs_data_A(d_o_rs_data_Apple),
-                        .i_rt_A(d_r2sel_Apple), .o_rt_data_A(d_o_rt_data_Apple), .i_rs_B(d_r1sel_Banana), .o_rs_data_B(d_o_rs_data_Banana), .i_rt_B(d_r2sel_Banana),
-                        .o_rt_data_B(d_o_rt_data_Banana), .i_rd_A(w_wsel_Apple), .i_wdata_A(w_o_alu_Apple), .i_rd_we_A(w_regfile_we_Apple), .i_rd_B(w_wsel_Banana), .i_wdata_B(w_o_alu_Banana), 
-                        .i_rd_we_B(w_regfile_we_Banana));
+   wire [15:0] d_o_r1_data_A, d_o_r2_data_A, d_o_r1_data_B, d_o_r2_data_B;
+   lc4_regfile_ss #(16) d_reg_lc4(.clk(clk), .gwe(gwe), .rst(rst), .i_rs_A(d_r1sel_A), .o_rs_data_A(d_o_rs_data_A),
+                        .i_rt_A(d_r2sel_A), .o_rt_data_A(d_o_rt_data_A), .i_rs_B(d_r1sel_B), .o_rs_data_B(d_o_rs_data_B), .i_rt_B(d_r2sel_B),
+                        .o_rt_data_B(d_o_rt_data_B), .i_rd_A(w_wsel_A), .i_wdata_A(w_o_alu_A), .i_rd_we_A(w_regfile_we_A), .i_rd_B(w_wsel_B), .i_wdata_B(w_o_alu_B), 
+                        .i_rd_we_B(w_regfile_we_B));
 
    // STALL LOGIC
-   wire [1:0] d_stall_Banana_test;
-   Nbit_reg #(2, 2'b10) d_stall_Banana_test_reg (.in(f_stall), .out(d_stall_Banana_test), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
+   wire [1:0] d_stall_B_test;
+   Nbit_reg #(2, 2'b10) d_stall_B_test_reg (.in(f_stall), .out(d_stall_B_test), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
 
-   wire is_Banana_stall;
-   assign is_Banana_stall = (d_stall_Banana_test != 2'b10) & (((d_r1_sel_Banana == d_rd_sel_Apple) & (d_r1re_Banana & d_regfile_we_Apple)) | ((d_rd_sel_Apple == d_r2_sel_Banana) & (d_regfile_we_Apple & d_r2re_Banana)));
-   wire [1:0] d_stall_Banana;
-   assign d_stall_Banana = (d_stall_Banana_test == 1'b1) ? 1'b0 : d_nzp_we_Banana;
+   wire is_B_stall;
+   assign is_B_stall = (d_stall_B_test != 2'b10) & (((d_r1_sel_B == d_rd_sel_A) & (d_r1re_B & d_regfile_we_A)) | ((d_rd_sel_A == d_r2_sel_B) & (d_regfile_we_A & d_r2re_B)));
+   wire [1:0] d_stall_B;
+   assign d_stall_B = (d_stall_B_test == 1'b1) ? 1'b0 : d_nzp_we_B;
 
    /**
       EXECUTE
       INPUT: 
          - PC, INSN, R1_DATA, R2_DATA
          - CONTROL SIGNALS:
-                d_r1re_Apple; // does this instruction read from rs
-                d_r2re_Apple; // does this instruction read from rt?
-                d_regfile_we_Apple; // does this instruction write to rd?
-                d_nzp_we_Apple; // does this instruction write the NZP bits?
-                d_select_pc_plus_one_Apple; // wrtie PC+1 to the regfile?
-                d_is_load_Apple; // is this a load instruction?
-                d_is_store_Apple; // is this is a store instruction?
-                d_is_branch_Apple; // is this a branch instruction?
-                d_is_control_insn_Apple; // is this a control instruction?
+                d_r1re_A; // does this instruction read from rs
+                d_r2re_A; // does this instruction read from rt?
+                d_regfile_we_A; // does this instruction write to rd?
+                d_nzp_we_A; // does this instruction write the NZP bits?
+                d_select_pc_plus_one_A; // wrtie PC+1 to the regfile?
+                d_is_load_A; // is this a load instruction?
+                d_is_store_A; // is this is a store instruction?
+                d_is_branch_A; // is this a branch instruction?
+                d_is_control_insn_A; // is this a control instruction?
    **/
    // Create registers for inputs for execute stage
    wire [15:0] x_pc, x_pc_plus_one, x_insn, x_o_r1_data, x_o_r2_data;
    // Program counter register, starts at 8200h at bootup
-   Nbit_reg #(16, 16'h8200) x_pc_reg (.in(d_pc_Apple), .out(x_pc), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'h8200) x_pc_reg (.in(d_pc_A), .out(x_pc), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
    // PC plus one
-   Nbit_reg #(16, 16'h8200) x_pc_plus_one_reg (.in(d_pc_Apple_plus_one), .out(x_pc_plus_one), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'h8200) x_pc_plus_one_reg (.in(d_pc_A_plus_one), .out(x_pc_plus_one), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
    // Fetched instruction register, starts at 0000h at bootup
-   Nbit_reg #(16, 16'h0000) x_insn_reg (.in(d_insn_Apple), .out(x_insn), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'h0000) x_insn_reg (.in(d_insn_A), .out(x_insn), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
    // R1 DATA, starts at 0000h at bootup
    Nbit_reg #(16, 16'h0000) x_r1_data_reg (.in(d_out_r1_data), .out(x_o_r1_data), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
    // R2 DATA, starts at 0000h at bootup
    Nbit_reg #(16, 16'h0000) x_r2_data_reg (.in(d_out_r2_data), .out(x_o_r2_data), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
    // Register Selector Lines
    wire [2:0] x_r1_sel, x_r2_sel, x_rd_sel;
-   Nbit_reg #(3, 3'b000) x_r1_sel_reg (.in(d_r1_sel_Apple), .out(x_r1_sel), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
-   Nbit_reg #(3, 3'b000) x_r2_sel_reg (.in(d_r2_sel_Apple), .out(x_r2_sel), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
-   Nbit_reg #(3, 3'b000) x_rd_sel_reg (.in(d_rd_sel_Apple), .out(x_rd_sel), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(3, 3'b000) x_r1_sel_reg (.in(d_r1_sel_A), .out(x_r1_sel), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(3, 3'b000) x_r2_sel_reg (.in(d_r2_sel_A), .out(x_r2_sel), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(3, 3'b000) x_rd_sel_reg (.in(d_rd_sel_A), .out(x_rd_sel), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
    // CONTROL SIGNALS
    wire [8:0] x_control_signals;
    Nbit_reg #(9, {9{1'b0}}) x_control_signals_reg (.in(d_control_signals), .out(x_control_signals), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
@@ -373,7 +373,7 @@ module lc4_processor(input wire         clk,             // main clock
     * to conditionally print out information.
     */
    always @(posedge gwe) begin
-      // $display("%d %h %h %h %h %h", $time, f_pc, d_pc_Apple, e_pc, m_pc, test_cur_pc);
+      // $display("%d %h %h %h %h %h", $time, f_pc, d_pc_A, e_pc, m_pc, test_cur_pc);
       // if (o_dmem_we)
       //   $display("%d STORE %h <= %h", $time, o_dmem_addr, o_dmem_towrite);
 
