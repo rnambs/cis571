@@ -2,7 +2,7 @@
 `default_nettype none
 
 // set this to 1 to exit after the first failure
-`define EXIT_AFTER_FIRST_ERROR 0
+`define EXIT_AFTER_FIRST_ERROR 1
 
 // change this to adjust how many errors are printed out
 `define MAX_ERRORS_TO_DISPLAY 15
@@ -69,15 +69,17 @@ module test_processor;
    
    // Produce gwe and other we signals using same modules as lc4_system
    wire        i1re, i2re, dre, gwe;
-   lc4_we_gen we_gen(.clk(clk),
+   lc4_we_gen we_gen(
+            .clk(clk),
 		     .i1re(i1re),
 		     .i2re(i2re),
 		     .dre(dre),
-		     .gwe(gwe));
-  
+		     .gwe(gwe)
+           );
    
    // Data and video memory block 
-   lc4_memory memory (.idclk(clk),
+   lc4_memory memory (
+            .idclk(clk),
 		      .i1re(i1re),
 		      .i2re(i2re),
 		      .dre(dre),
