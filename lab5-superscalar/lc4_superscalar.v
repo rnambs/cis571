@@ -65,9 +65,9 @@ module lc4_processor(input wire         clk,             // main clock
             .sum(f_pc_B)
          );
 
-    cla16 cla2(.a(f_pc_B),
-            .b(16'b0),
-            .cin(1'b1),
+    cla16 cla2(.a(f_pc_A),
+            .b(16'h0002),
+            .cin(1'b0),
             .sum(pc_plus_one)
          );
 
@@ -76,8 +76,6 @@ module lc4_processor(input wire         clk,             // main clock
    assign o_cur_pc = f_pc_A;
 
    // FETCH PC STALL LOGIC
-
-
     wire [1:0] f_stall_A = (f_pc_A == 16'h8200) ? 2'b0 : 
                            stall_flushing_full_A ? 2'b10 : 2'b0;
 
@@ -88,21 +86,19 @@ module lc4_processor(input wire         clk,             // main clock
         Input: PC, Instruction (i_cur_insn_A)
     */
 
-
     /**
         DECODE A 
     */
     wire [15:0]   d_pc_A, d_pc_plus_one_A, d_insn_A;
-    wire d_pc_reg_we_A = !(decode_stall_logic_complete_A == 2'b11);
 
     // Program counter register, starts at 8200h at bootup
-    Nbit_reg #(16, 16'h8200) d_pc_A_reg (.in(f_pc_A), .out(d_pc_A), .clk(clk), .we(d_pc_reg_we_A), .gwe(gwe), .rst(rst));
+    Nbit_reg #(16, 16'h8200) d_pc_A_reg (.in(f_pc_A), .out(d_pc_A), .clk(clk), .we(gwe), .gwe(gwe), .rst(rst));
 
     //PC+1 LOGIC
-    Nbit_reg #(16, 16'h8200) d_pc_plus_one_A_reg (.in(next_pc), .out(d_pc_plus_one_A), .clk(clk), .we(d_pc_reg_we_A), .gwe(gwe), .rst(rst));
+    Nbit_reg #(16, 16'h8200) d_pc_plus_one_A_reg (.in(next_pc), .out(d_pc_plus_one_A), .clk(clk), .we(gwe), .gwe(gwe), .rst(rst));
 
     // Fetched instruction register, starts at 0000h at bootup
-    Nbit_reg #(16, 16'b0) d_insn_reg (.in(i_cur_insn_A), .out(d_insn_A), .clk(clk), .we(d_pc_reg_we_A), .gwe(gwe), .rst(rst));
+    Nbit_reg #(16, 16'b0) d_insn_reg (.in(i_cur_insn_A), .out(d_insn_A), .clk(clk), .we(gwe), .gwe(gwe), .rst(rst));
 
     // Control Signals
     wire d_r1re_A, d_r2re_A, d_regfile_we_A, d_nzp_we_A, d_select_pc_plus_one_A, d_is_load_A, d_is_store_A, d_is_branch_A, d_is_control_insn_A;
@@ -152,9 +148,16 @@ module lc4_processor(input wire         clk,             // main clock
 
     
     // FLUSHING LOGIC
-    wire d_flush_regfile_we_A = (d_stall_final_A == 1'b1 | d_stall_A == 2'b10 | stall_flushing_full_A == 1'b1) ? 1'b0 : d_regfile_we_A;
-    wire d_flush_is_store_A = (d_stall_final_A == 1'b1 | d_stall_A == 2'b10 | stall_flushing_full_A == 1'b1) ? 1'b0 : d_is_store_A;
-    wire d_flush_nzp_we_A = (d_stall_final_A == 1'b1 | d_stall_A == 2'b10 | stall_flushing_full_A == 1'b1) ? 1'b0 : d_nzp_we_A;
+    wire d_is_insn_noop_A = (d_stall_final_A == 1'b1 | d_stall_A == 2'b10 | stall_flushing_full_A == 1'b1);
+    
+    wire[15:0] d_insn_final_A = d_is_insn_noop_A ? 16'b0 : d_insn_A;
+
+    // Change permission of instruction
+    wire d_flush_regfile_we_A = !d_is_insn_noop_A && d_regfile_we_A;
+    wire d_flush_is_store_A = !d_is_insn_noop_A && d_is_store_A;
+    wire d_flush_nzp_we_A = !d_is_insn_noop_A && d_nzp_we_A;
+
+    
     // Decode control signals
     wire [8:0] d_control_signals_A = {d_r1re_A, d_r2re_A, d_flush_regfile_we_A, d_flush_nzp_we_A, d_select_pc_plus_one_A,  d_is_load_A, d_flush_is_store_A, d_is_branch_A, d_is_control_insn_A};
     
@@ -167,15 +170,13 @@ module lc4_processor(input wire         clk,             // main clock
     wire [15:0]   d_pc_B, d_pc_plus_one_B, d_insn_B;
 
     // Program counter register, starts at 8200h at bootup
-    Nbit_reg #(16, 16'h8200) d_pc_B_reg (.in(f_pc_B), .out(d_pc_B), .clk(clk), .we(d_pc_B_reg_we), .gwe(gwe), .rst(rst));
+    Nbit_reg #(16, 16'h8200) d_pc_B_reg (.in(f_pc_B), .out(d_pc_B), .clk(clk), .we(gwe), .gwe(gwe), .rst(rst));
 
-    // Needs to be modified
-    wire d_pc_B_reg_we = 1'b1;
 
     cla16 add_pc_B_decode(.a(o_cur_pc), .b(16'b0), .cin(1'b1), .sum(d_pc_plus_one_B));
 
     // Fetched instruction register, starts at 0000h at bootup
-    Nbit_reg #(16, 16'b0) d_insn_reg_B (.in(i_cur_insn_B), .out(d_insn_B), .clk(clk), .we(d_pc_B_reg_we), .gwe(gwe), .rst(rst));
+    Nbit_reg #(16, 16'b0) d_insn_reg_B (.in(i_cur_insn_B), .out(d_insn_B), .clk(clk), .we(gwe), .gwe(gwe), .rst(rst));
     
     // Control Signals
     wire d_r1re_B, d_r2re_B, d_regfile_we_B, d_nzp_we_B, d_select_pc_plus_one_B, d_is_load_B, d_is_store_B, d_is_branch_B, d_is_control_insn_B;
@@ -223,9 +224,13 @@ module lc4_processor(input wire         clk,             // main clock
 
     
     // FLUSHING LOGIC
-    wire d_flush_regfile_we_B = (d_stall_final_B == 1'b1 | d_stall_B == 2'b10 | stall_flushing_full_B == 1'b1) ? 1'b0 : d_regfile_we_B;
-    wire d_flush_is_store_B = (d_stall_final_B == 1'b1 | d_stall_B == 2'b10 | stall_flushing_full_B == 1'b1) ? 1'b0 : d_is_store_B;
-    wire d_flush_nzp_we_B = (d_stall_final_B == 1'b1 | d_stall_B == 2'b10 | stall_flushing_full_B == 1'b1) ? 1'b0 : d_nzp_we_B;
+    wire d_is_insn_noop_B = (d_stall_final_B == 1'b1 | d_stall_B == 2'b10 | stall_flushing_full_B == 1'b1);
+    wire[15:0] d_insn_final_B = d_is_insn_noop_B ? 16'b0 : d_insn_B;
+    // Change permission of instruction
+    wire d_flush_regfile_we_B = !d_is_insn_noop_B && d_regfile_we_B;
+    wire d_flush_is_store_B = !d_is_insn_noop_B && d_is_store_B;
+    wire d_flush_nzp_we_B = !d_is_insn_noop_B && d_nzp_we_B;
+    
     // Decode control signals
     wire [8:0] d_control_signals_B = {d_r1re_B, d_r2re_B, d_flush_regfile_we_B, d_flush_nzp_we_B, d_select_pc_plus_one_B,  d_is_load_B, d_flush_is_store_B, d_is_branch_B, d_is_control_insn_B};
 
@@ -282,7 +287,7 @@ module lc4_processor(input wire         clk,             // main clock
     // PC plus one
     Nbit_reg #(16, 16'h8200) x_pc_plus_one_reg_A (.in(d_pc_plus_one_A), .out(x_pc_plus_one_A), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
     // Fetched instruction register, starts at 0000h at bootup
-    Nbit_reg #(16, 16'h0000) x_insn_reg_A (.in(d_insn_A), .out(x_insn_A), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
+    Nbit_reg #(16, 16'h0000) x_insn_reg_A (.in(d_insn_final_A), .out(x_insn_A), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
     // R1 DATA, starts at 0000h at bootup
     Nbit_reg #(16, 16'h0000) x_r1_data_reg_A (.in(d_o_r1_data_A), .out(x_o_r1_data_A), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
     // R2 DATA, starts at 0000h at bootup
@@ -350,7 +355,7 @@ module lc4_processor(input wire         clk,             // main clock
     // PC plus one
     Nbit_reg #(16, 16'h8200) x_pc_plus_one_reg (.in(d_pc_plus_one_B), .out(x_pc_plus_one_B), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
     // Fetched instruction register, starts at 0000h at bootup
-    Nbit_reg #(16, 16'h0000) x_insn_reg (.in(d_insn_B), .out(x_insn_B), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
+    Nbit_reg #(16, 16'h0000) x_insn_reg (.in(d_insn_final_B), .out(x_insn_B), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
     // R1 DATA, starts at 0000h at bootup
     Nbit_reg #(16, 16'h0000) x_r1_data_reg (.in(d_o_r1_data_B), .out(x_o_r1_data_B), .clk(clk), .we(1'b1), .gwe(gwe), .rst(rst));
     // R2 DATA, starts at 0000h at bootup
