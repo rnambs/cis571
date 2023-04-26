@@ -188,7 +188,7 @@ module lc4_processor(input wire         clk,             // main clock
     // Global LTU stall pipe A
     wire d_ltu_stall_A =  d_ltu_stall_with_pipe_A_A | d_ltu_stall_with_pipe_B_A | d_ltu_stall_branch_load_A;
 
-    wire [1:0] decode_stall_logic_complete_A =  stall_flushing_full_A ? 2'b10 :
+    wire [1:0] decode_stall_logic_complete_A =  stall_flushing_full_A | stall_flushing_full_B ? 2'b10 :
                                                 d_ltu_stall_A ? 2'b11: // LTU Stall in A  
                                                 (d_carry_over_stall_A == 2'b10) ? 2'b10 : 2'b00;
 
@@ -278,8 +278,8 @@ module lc4_processor(input wire         clk,             // main clock
         // Combine partial results for dependendence between D.B and X.A
         wire d_ltu_stall_with_pipe_A_B = (d_is_branch_B & x_is_load_A & !x_nzp_we_B) | (d_ltu_stall_with_pipe_A_on_r1_B & d_ltu_stall_with_pipe_A_on_r1_intervention_B) | (d_ltu_stall_with_pipe_A_on_r2_B & d_ltu_stall_with_pipe_A_on_r2_intervention_B);
         // LTU dependendence between D.B and X.B
-        wire d_ltu_stall_with_pipe_B_on_r1_B = x_is_load_B & ((d_r1re_B  & (d_r1_sel_B == x_rd_sel_B)) & ((d_r1_sel_B != d_rd_sel_A) || !d_regfile_we_A));
-        wire d_ltu_stall_with_pipe_B_on_r2_B = x_is_load_B & ((d_r2re_B  & (d_r2_sel_B == x_rd_sel_B)) & ((d_r2_sel_B != d_rd_sel_A) || !d_regfile_we_A));
+        wire d_ltu_stall_with_pipe_B_on_r1_B = x_is_load_B  & ((d_r1re_B  & (d_r1_sel_B == x_rd_sel_B)) & ((d_r1_sel_B != d_rd_sel_A) || !d_regfile_we_A));
+        wire d_ltu_stall_with_pipe_B_on_r2_B = x_is_load_B & !d_is_store_B& ((d_r2re_B  & (d_r2_sel_B == x_rd_sel_B)) & ((d_r2_sel_B != d_rd_sel_A) || !d_regfile_we_A));
         // Combine partial results for dependendence between D.B and X.B
         wire d_ltu_stall_with_pipe_B_B = (d_is_branch_B & x_is_load_B) | d_ltu_stall_with_pipe_B_on_r1_B | d_ltu_stall_with_pipe_B_on_r2_B;
         // Global LTU Stall
