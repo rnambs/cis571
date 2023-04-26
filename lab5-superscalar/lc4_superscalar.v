@@ -63,7 +63,6 @@ module lc4_processor(input wire         clk,             // main clock
    
 
    // some stall logic check here to put correct value into b(in)
-   wire[15:0] stallCheck = (d_does_pipe_stall_B) ? 16'b0 : 16'b1;
 
     // PC + 1
    cla16 cla_pc_plus_one(
@@ -80,12 +79,12 @@ module lc4_processor(input wire         clk,             // main clock
             .sum(pc_plus_two)
             );
     
-   assign o_cur_pc = (d_ltu_stall_A ) ? pc_plus_one : f_pc_A;
-   assign f_pc_B = (d_ltu_stall_A ) ? pc_plus_two : pc_plus_one;
+   assign o_cur_pc = (d_ltu_stall_A) ? pc_plus_one : f_pc_A;
+   assign f_pc_B = (d_ltu_stall_A) ? pc_plus_two : pc_plus_one;
 
    wire f_reg_we = (d_ltu_stall_A != 1'b1) ? 1'b1 : 1'b0;
    // FETCH PC STALL LOGIC
-    wire [1:0] f_stall = (stall_flushing_full_A | stall_flushing_full_B) ? 2'b10 : 2'b0;
+    wire [1:0] f_stall = (stall_flushing_full_A | stall_flushing_full_B) ? 2'b10 : 2'b00;
 
     // Fetch Flushing logic 
     // PIPE A 
@@ -93,7 +92,7 @@ module lc4_processor(input wire         clk,             // main clock
                                 o_cur_pc;   
 
     wire[15:0] f_insn_final_A = d_ltu_stall_A ? 16'b0 : // FLUSH INSN if A has LTU dependence
-                                (d_superscalar_stall_B) ? d_insn_B : // PIPELINE SWITCH
+                                d_does_pipe_stall_B ? d_insn_B : // PIPELINE SWITCH
                                 i_cur_insn_A; // NORMAL INSN
 
 
@@ -114,8 +113,8 @@ module lc4_processor(input wire         clk,             // main clock
     /**
         DECODE A 
     */
-    wire [15:0]   d_pc_A, d_pc_plus_one_A, d_insn_A, d_pc_next_A, d_i_next_cur_insn_A;
-    wire d_pc_reg_we_A = !(decode_stall_logic_complete_A == 2'b11);
+    wire [15:0]   d_pc_A, d_pc_plus_one_A, d_insn_A;
+    wire d_pc_reg_we_A = !(decode_stall_logic_complete_A == 2'b11); // Check against flushes
 
     // Program counter register, starts at 8200h at bootup
     Nbit_reg #(16, 16'h8200) d_pc_A_reg (.in(f_pc_final_A), .out(d_pc_A), .clk(clk), .we(d_pc_reg_we_A), .gwe(gwe), .rst(rst));
@@ -176,12 +175,13 @@ module lc4_processor(input wire         clk,             // main clock
     
     // LTU Stall 
 
-    // LTU STALL D.A with X.A
-    wire d_ltu_stall_with_pipe_A_A = (x_is_load_A & ((d_r1re_A  & (d_r1_sel_A == x_rd_sel_A)) || (d_r2re_A  & (d_r2_sel_A == x_rd_sel_A))));
-    // LTU STALL D.A with X.B
-    wire d_ltu_stall_with_pipe_B_A = (x_is_load_B & ((d_r1re_A  & (d_r1_sel_A == x_rd_sel_B)) || (d_r2re_A  & (d_r2_sel_A == x_rd_sel_B))));
+    // LTU STALL D.A with X.A - Checks for intervention of X.B
+    wire d_ltu_stall_with_pipe_A_on_r1_A = x_is_load_A & d_r1re_A & (d_r1_sel_A == x_rd_sel_A) & ((d_r1_sel_A != x_rd_sel_B) || !x_regfile_we_B);
+    wire d_ltu_stall_with_pipe_A_on_r2_A = x_is_load_A & d_r2re_A & !d_is_store_A & (d_r2_sel_A == x_rd_sel_A) & ((d_r2_sel_A != x_rd_sel_B) || !x_regfile_we_B);
+    // LTU STALL D.A with X.B - Doesn't need intervention checking.
+    wire d_ltu_stall_with_pipe_B_A = (x_is_load_B  & ((d_r1re_A  & (d_r1_sel_A == x_rd_sel_B)) || (d_r2re_A  & (d_r2_sel_A == x_rd_sel_B) & !d_is_store_A)));
     // Global LTU stall pipe A
-    wire d_ltu_stall_A = d_ltu_stall_with_pipe_A_A | d_ltu_stall_with_pipe_B_A;
+    wire d_ltu_stall_A =  d_ltu_stall_with_pipe_A_on_r1_A | d_ltu_stall_with_pipe_A_on_r2_A | d_ltu_stall_with_pipe_B_A;
 
     wire [1:0] decode_stall_logic_complete_A =
                             d_ltu_stall_A ? 2'b11: // LTU Stall in A  
@@ -197,24 +197,27 @@ module lc4_processor(input wire         clk,             // main clock
     wire d_flush_is_store_A = (d_stall_final_A == 1'b1 | d_carry_over_stall_A == 2'b10 | stall_flushing_full_A == 1'b1) ? 1'b0 : d_is_store_A;
     wire d_flush_nzp_we_A = (d_stall_final_A == 1'b1 | d_carry_over_stall_A == 2'b10 | stall_flushing_full_A == 1'b1) ? 1'b0 : d_nzp_we_A;
     
-     wire[15:0] d_insn_final_A = d_ltu_stall_A ? 16'b0 : // FLUSH if A has LTU dependence
+    wire[15:0] d_insn_final_A = d_ltu_stall_A ? 16'b0 : // FLUSH if A has LTU dependence
                                 d_insn_A;
 
 
     
     // Decode control signals
-    wire [8:0] d_control_signals_A = {d_r1re_A, d_r2re_A, d_flush_regfile_we_A, d_flush_nzp_we_A, d_select_pc_plus_one_A,  d_is_load_A, d_flush_is_store_A, d_is_branch_A, d_is_control_insn_A};
+    wire [8:0] d_control_signals_A = (d_ltu_stall_A)? 9'b0 : {d_r1re_A, d_r2re_A, d_flush_regfile_we_A, d_flush_nzp_we_A, d_select_pc_plus_one_A,  d_is_load_A, d_flush_is_store_A, d_is_branch_A, d_is_control_insn_A};
     
 
     /* 
     DECODE B 
     */
+
+    // Needs to be modified
+    wire d_pc_B_reg_we = !(decode_stall_logic_complete_A == 2'b11); // Check against flushes
+
     wire [15:0]   d_pc_B, d_pc_plus_one_B, d_insn_B;
     // Program counter register, starts at 8200h at bootup
     Nbit_reg #(16, 16'h8200) d_pc_B_reg (.in(f_pc_final_B), .out(d_pc_B), .clk(clk), .we(d_pc_B_reg_we), .gwe(gwe), .rst(rst));
     cla16 cla_d_pc_plus_one_B(.a(f_pc_final_B), .b(16'b0), .cin(1'b1), .sum(d_pc_plus_one_B));
-    // Needs to be modified
-    wire d_pc_B_reg_we = 1'b1;
+    
 
     // Fetched instruction register, starts at 0000h at bootup
     Nbit_reg #(16, 16'b0) d_insn_reg_B (.in(f_insn_final_B), .out(d_insn_B), .clk(clk), .we(d_pc_B_reg_we), .gwe(gwe), .rst(rst));
@@ -259,22 +262,28 @@ module lc4_processor(input wire         clk,             // main clock
         
         // Superscalar stall
         //  D.B depends on D.A
-        wire d_decode_pipe_dependency = ((d_rd_sel_A == d_r1_sel_B) & (d_r1re_B & d_regfile_we_A)) | ((d_rd_sel_A == d_r2_sel_B) & (d_r2re_B & d_regfile_we_A));
+        wire d_decode_pipe_dependency = ((d_rd_sel_A == d_r1_sel_B) & d_r1re_B & d_regfile_we_A) | ((d_rd_sel_A == d_r2_sel_B) & d_r2re_B & !d_is_store_B & d_regfile_we_A);
         // D.B and D.A are both memory
-        wire d_decode_memory_dependency = (d_is_load_A & d_is_store_A) & (d_is_load_B | d_is_store_B);
+        wire d_decode_memory_dependency = (d_is_load_A | d_is_store_A) & (d_is_load_B | d_is_store_B);
         // Global superscalar stall for pipe B
         wire d_superscalar_stall_B = d_decode_pipe_dependency | d_decode_memory_dependency;
        
         // LTU Stall 
-        // LTU dependendence with D.B and X.A
-        wire d_ltu_stall_with_pipe_A_B = (x_is_load_A & ((d_r1re_B  & (d_r1_sel_B == x_rd_sel_A)) || (d_r2re_B  & (d_r2_sel_B == x_rd_sel_A))));
-        // LTU dependendence with D.B and X.B
-        wire d_ltu_stall_with_pipe_B_B = (x_is_load_B & ((d_r1re_B  & (d_r1_sel_B == x_rd_sel_B)) || (d_r2re_B  & (d_r2_sel_B == x_rd_sel_B))));
+        // LTU dependendence with D.B and X.A - Check for double intervention
+        wire d_ltu_stall_with_pipe_A_on_r1_B = x_is_load_A & d_r1re_B  & (d_r1_sel_B == x_rd_sel_A);
+        wire d_ltu_stall_with_pipe_A_on_r1_intervention_B = ((d_r1_sel_B != x_rd_sel_B) || !x_regfile_we_B) & ((d_r1_sel_B != d_rd_sel_A) || !d_regfile_we_A);
+        wire d_ltu_stall_with_pipe_A_on_r2_B = x_is_load_A &  (d_r2re_B  & (d_r2_sel_B == x_rd_sel_A) & !d_is_store_B);
+        wire d_ltu_stall_with_pipe_A_on_r2_intervention_B = ((d_r2_sel_B != x_rd_sel_B) || !x_regfile_we_B) & ((d_r2_sel_B != d_rd_sel_A) || !d_regfile_we_A);
+        // Combine partial results for dependendence between D.B and X.A
+        wire d_ltu_stall_with_pipe_A_B = (d_ltu_stall_with_pipe_A_on_r1_B & d_ltu_stall_with_pipe_A_on_r1_intervention_B) | (d_ltu_stall_with_pipe_A_on_r2_B & d_ltu_stall_with_pipe_A_on_r2_intervention_B);
+        // LTU dependendence between D.B and X.B
+        wire d_ltu_stall_with_pipe_B_on_r1_B = x_is_load_B & (d_r1re_B  & (d_r1_sel_B == x_rd_sel_B)) & ((d_r1_sel_B != d_rd_sel_A) || !d_regfile_we_A);
+        wire d_ltu_stall_with_pipe_B_on_r2_B = x_is_load_B & (d_r2re_B  & (d_r2_sel_B == x_rd_sel_B)) & ((d_r2_sel_B != d_rd_sel_A) || !d_regfile_we_A);
         // Global LTU Stall
-        wire d_ltu_stall_B = d_ltu_stall_with_pipe_A_B | d_ltu_stall_with_pipe_B_B;
+        wire d_ltu_stall_B = d_ltu_stall_with_pipe_A_B | d_ltu_stall_with_pipe_B_on_r1_B | d_ltu_stall_with_pipe_B_on_r2_B;
 
         // Global 
-        wire d_does_pipe_stall_B = d_superscalar_stall_B | d_ltu_stall_B;
+        wire d_does_pipe_stall_B = d_superscalar_stall_B | d_ltu_stall_B | d_ltu_stall_A;
 
         wire [1:0] decode_stall_logic_complete_B =  d_ltu_stall_A ? 2'b01: // Superscalar stall -> LTU Stall in A  
                                                     d_superscalar_stall_B ? 2'b01 : // Superscalar stall with A 
@@ -302,8 +311,8 @@ module lc4_processor(input wire         clk,             // main clock
                             .o_rt_data_B(d_o_r2_data_B), .i_rd_A(w_rd_sel_A), .i_wdata_A(w_regfile_in_A), .i_rd_we_A(w_regfile_we_A), .i_rd_B(w_rd_sel_B), .i_wdata_B(w_regfile_in_B), 
                             .i_rd_we_B(w_regfile_we_B));
         
-        // Encode control signals
-        wire [8:0] d_control_signals_B = {d_r1re_B, d_r2re_B, d_flush_regfile_we_B, d_flush_nzp_we_B, d_select_pc_plus_one_B,  d_is_load_B, d_flush_is_store_B, d_is_branch_B, d_is_control_insn_B};
+        // Encode control signals - Do not propagate if pipe b stalls
+        wire [8:0] d_control_signals_B = (d_does_pipe_stall_B) ? 9'b0 : {d_r1re_B, d_r2re_B, d_flush_regfile_we_B, d_flush_nzp_we_B, d_select_pc_plus_one_B,  d_is_load_B, d_flush_is_store_B, d_is_branch_B, d_is_control_insn_B};
         
     /**
         EXECUTE
@@ -533,8 +542,6 @@ module lc4_processor(input wire         clk,             // main clock
     
 
     // WM BYPASS LOGIC
-    assign o_dmem_towrite  = (m_is_store_A & (w_rd_sel_A == m_r2_sel_A) & w_regfile_we_A & ~w_is_store_A) ? w_regfile_in_A : m_r2_data_A;
-    
     wire[15:0] m_regfile_in_A = m_select_pc_plus_one_A ? m_pc_plus_one_A : 
                                 m_is_load_A ? i_cur_dmem_data : 
                                 m_alu_data_A;
@@ -546,7 +553,10 @@ module lc4_processor(input wire         clk,             // main clock
     // MEMORY LOGIC 
     wire[15:0] m_o_dmem_addr_A = ((m_carry_over_stall_A == 2'b00) & (m_is_load_A | m_is_store_A)) ? m_alu_data_A : 16'b0 ;
     // WM Bypass
-    wire[15:0] m_o_dmem_towrite_A  = (m_is_store_A & (w_rd_sel_A == m_r2_sel_A) & w_regfile_we_A & ~w_is_store_A) ? w_regfile_in_A : m_r2_data_A;
+    wire[15:0] m_o_dmem_towrite_A  =  (m_is_store_A & (w_rd_sel_B == m_r2_sel_A) & w_regfile_we_B & ~w_is_store_B) ? w_regfile_in_B : // WM Bypass: W.B to M.A
+                                        (m_is_store_A & (w_rd_sel_A == m_r2_sel_A) & w_regfile_we_A & ~w_is_store_A) ? w_regfile_in_A : // WM Bypass: W.A to M.A
+                                        m_r2_data_A;
+
     wire m_o_dmem_we_A = m_is_store_A;
 
         /**
@@ -592,8 +602,11 @@ module lc4_processor(input wire         clk,             // main clock
 
     // MEMORY LOGIC
     wire[15:0] m_o_dmem_addr_B = ((m_carry_over_stall_B == 2'b00) & (m_is_load_B | m_is_store_B)) ? m_alu_data_B : 16'b0;
-    // WM BYPASS LOGIC
-    wire[15:0] m_o_dmem_towrite_B  = (m_is_store_B & (w_rd_sel_B == m_r2_sel_B) & w_regfile_we_B & ~w_is_store_B) ? w_regfile_in_B : m_r2_data_B;
+    // WM and MM BYPASS LOGIC
+    wire[15:0] m_o_dmem_towrite_B  =(m_is_store_B & (m_rd_sel_A == m_r2_sel_B) & m_regfile_we_A) ? m_alu_data_A :  // MM bypass 
+                                    (m_is_store_B & (w_rd_sel_B == m_r2_sel_B) & w_regfile_we_B & ~w_is_store_B) ? w_regfile_in_B : //WM bypass
+                                     m_r2_data_B;
+
     wire m_o_dmem_we_B = m_is_store_B;
     
 
@@ -746,11 +759,14 @@ module lc4_processor(input wire         clk,             // main clock
    always @(posedge gwe) begin
       // $display("%d %h %h %h %h %h", $time, f_pc_A, d_pc_A, e_pc, m_pc, test_cur_pc);
       if (o_dmem_we)
-        $display("%d PC:  A:  f: %h, d: %h, x: %h, m: %h, w: %h - next_pc: %h", $time, f_pc_A, d_pc_A, x_pc_A, m_pc_A, w_pc_A, next_pc);
-        $display("%d PC:  B:  f: %h, d: %h, x: %h, m: %h, w: %h ", $time, f_pc_B, d_pc_B, x_pc_B, m_pc_B, w_pc_B);
+        $display("");
+        $display("%d PC:  A: f: %h, d: %h, x: %h, m: %h, w: %h - next_pc: %h", $time, f_pc_A, d_pc_A, x_pc_A, m_pc_A, w_pc_A, next_pc);
+        $display("%d PC:  B: f: %h, d: %h, x: %h, m: %h, w: %h ", $time, f_pc_B, d_pc_B, x_pc_B, m_pc_B, w_pc_B);
+        
         $display("%d INSN A: f: %h, d: %h, x: %h, m: %h, w: %h", $time, i_cur_insn_A, d_insn_A, x_insn_A, m_insn_A, w_insn_A);
         $display("%d INSN B: f: %h, d: %h, x: %h, m: %h, w: %h", $time, i_cur_insn_B, d_insn_B, x_insn_B, m_insn_B, w_insn_B);
-        
+        $display("%d PC:  A:  f_pc_final_A: %h", $time, f_pc_final_A);
+        $display("%d PC:  B:  f_pc_final_B: %h", $time, f_pc_final_B);
         $display("%d ALU A : r1: (R%d, %h), r2: (R%d, %h), rd: R%h, OUTPUT: %h", $time, x_r1_sel_A, i_r1_alu_A, x_r2_sel_A, i_r2_alu_A, x_rd_sel_A, x_alu_data_A);
         $display("%d ALU DATA A : x: %h, m: %h, w: %h", $time, x_alu_data_A, m_alu_data_A, w_alu_data_A);
         $display("%d ALU B : r1: (R%d, %h), r2: (R%d, %h), rd: R%h, OUTPUT: %h", $time, x_r1_sel_B, i_r1_alu_B, x_r2_sel_B, i_r2_alu_B, x_rd_sel_B, x_alu_data_B);
@@ -760,6 +776,10 @@ module lc4_processor(input wire         clk,             // main clock
         $display("%d MEMORY ADDR B:  m: %h, w: %h", $time, m_o_dmem_addr_B, w_o_dmem_addr_B);
         $display("%d STALL A: f: %h, d: %h, x: %h, m: %h, w: %h", $time, f_stall, d_carry_over_stall_A, x_carry_over_stall_A, m_carry_over_stall_A, w_carry_over_stall_A);
         $display("%d STALL B: f: %h, d: %h, x: %h, m: %h, w: %h", $time, f_stall, d_carry_over_stall_B, x_carry_over_stall_B, m_carry_over_stall_B, w_carry_over_stall_B);
+        $display("%d pipe A LTU: %b, pipe B LTU: %b, superscalar stall: %b, does b stall: %b", $time, d_ltu_stall_A, d_ltu_stall_B, d_superscalar_stall_B, d_does_pipe_stall_B);
+        $display("%d A LTU STALL: D.A & X.A: (r1, %b) (r1,%b), D.A & X.B: %b", $time, d_ltu_stall_with_pipe_A_on_r1_A, d_ltu_stall_with_pipe_A_on_r2_A, d_ltu_stall_with_pipe_B_A);
+        $display("%d A LTU STALL: D.B & X.B: (r1, %b) (r1,%b), D.B & X.A: %b", $time, d_ltu_stall_with_pipe_B_on_r1_B, d_ltu_stall_with_pipe_B_on_r2_B, d_ltu_stall_with_pipe_A_B);
+        $display("%d B superscalar stall: decode dependency: %b, memory dependency: %b", $time, d_decode_pipe_dependency, d_decode_memory_dependency);
         
     //    $display("%d INSN: f: %h, d: %h, x: %h, m: %h, w: %h", $time, i_cur_insn, d_insn, x_insn, m_insn, w_insn);
     //    $display("%d ALU INPUT: R%d:%d, R%d:%d, DEST: R%d, OUTPUT: %d", $time,x_r1_sel, i_r1_alu, x_r2_sel, i_r2_alu, x_rd_sel, x_alu_data);
