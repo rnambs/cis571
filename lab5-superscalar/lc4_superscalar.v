@@ -53,9 +53,9 @@ module lc4_processor(input wire         clk,             // main clock
       Input: PC
    */
 
-   assign next_pc = d_ltu_stall_A ? f_pc_A: // REPEAT PC Counter if A has LTU STALL
-                    stall_flushing_full_A ? branch_pc_A : 
+   assign next_pc = stall_flushing_full_A ? branch_pc_A : 
                     stall_flushing_full_B ? branch_pc_B : 
+                    d_ltu_stall_A ? f_pc_A: // REPEAT PC Counter if A has LTU STALL
                     d_does_pipe_stall_B ? pc_plus_one : pc_plus_two;
                     
    wire [15:0]   f_pc_A, f_pc_B, next_pc, pc_plus_one, pc_plus_two;
@@ -183,8 +183,8 @@ module lc4_processor(input wire         clk,             // main clock
     wire d_ltu_stall_with_pipe_A_A = d_ltu_stall_with_pipe_A_on_r1_A | d_ltu_stall_with_pipe_A_on_r2_A;
     // LTU STALL D.A with X.B - Doesn't need intervention checking.
     wire d_ltu_stall_with_pipe_B_A = (x_is_load_B  & ((d_r1re_A  & (d_r1_sel_A == x_rd_sel_B)) || (d_r2re_A  & (d_r2_sel_A == x_rd_sel_B) & !d_is_store_A)));
-    // LTU STALL BRANCH with LDR
-    wire d_ltu_stall_branch_load_A = d_is_branch_A & (x_is_load_A | x_is_load_B);
+    // LTU STALL BRANCH with LDR - Check for intervention
+    wire d_ltu_stall_branch_load_A = d_is_branch_A & ( (x_is_load_A & !x_nzp_we_B)| x_is_load_B );
     // Global LTU stall pipe A
     wire d_ltu_stall_A =  d_ltu_stall_with_pipe_A_A | d_ltu_stall_with_pipe_B_A | d_ltu_stall_branch_load_A;
 
@@ -276,12 +276,12 @@ module lc4_processor(input wire         clk,             // main clock
         wire d_ltu_stall_with_pipe_A_on_r2_B = x_is_load_A &  (d_r2re_B  & (d_r2_sel_B == x_rd_sel_A) & !d_is_store_B);
         wire d_ltu_stall_with_pipe_A_on_r2_intervention_B = ((d_r2_sel_B != x_rd_sel_B) || !x_regfile_we_B) & ((d_r2_sel_B != d_rd_sel_A) || !d_regfile_we_A);
         // Combine partial results for dependendence between D.B and X.A
-        wire d_ltu_stall_with_pipe_A_B = (x_is_load_A & d_is_branch_B) | (d_ltu_stall_with_pipe_A_on_r1_B & d_ltu_stall_with_pipe_A_on_r1_intervention_B) | (d_ltu_stall_with_pipe_A_on_r2_B & d_ltu_stall_with_pipe_A_on_r2_intervention_B);
+        wire d_ltu_stall_with_pipe_A_B = (d_is_branch_B & x_is_load_A & !x_nzp_we_B) | (d_ltu_stall_with_pipe_A_on_r1_B & d_ltu_stall_with_pipe_A_on_r1_intervention_B) | (d_ltu_stall_with_pipe_A_on_r2_B & d_ltu_stall_with_pipe_A_on_r2_intervention_B);
         // LTU dependendence between D.B and X.B
         wire d_ltu_stall_with_pipe_B_on_r1_B = x_is_load_B & ((d_r1re_B  & (d_r1_sel_B == x_rd_sel_B)) & ((d_r1_sel_B != d_rd_sel_A) || !d_regfile_we_A));
         wire d_ltu_stall_with_pipe_B_on_r2_B = x_is_load_B & ((d_r2re_B  & (d_r2_sel_B == x_rd_sel_B)) & ((d_r2_sel_B != d_rd_sel_A) || !d_regfile_we_A));
         // Combine partial results for dependendence between D.B and X.B
-        wire d_ltu_stall_with_pipe_B_B = (x_is_load_B & d_is_branch_B) | d_ltu_stall_with_pipe_B_on_r1_B | d_ltu_stall_with_pipe_B_on_r2_B;
+        wire d_ltu_stall_with_pipe_B_B = (d_is_branch_B & x_is_load_B) | d_ltu_stall_with_pipe_B_on_r1_B | d_ltu_stall_with_pipe_B_on_r2_B;
         // Global LTU Stall
         wire d_ltu_stall_B = d_ltu_stall_with_pipe_A_B | d_ltu_stall_with_pipe_B_B;
 
