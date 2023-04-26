@@ -183,13 +183,14 @@ module lc4_processor(input wire         clk,             // main clock
     wire d_ltu_stall_with_pipe_A_A = d_ltu_stall_with_pipe_A_on_r1_A | d_ltu_stall_with_pipe_A_on_r2_A;
     // LTU STALL D.A with X.B - Doesn't need intervention checking.
     wire d_ltu_stall_with_pipe_B_A = (x_is_load_B  & ((d_r1re_A  & (d_r1_sel_A == x_rd_sel_B)) || (d_r2re_A  & (d_r2_sel_A == x_rd_sel_B) & !d_is_store_A)));
+    // LTU STALL BRANCH with LDR
+    wire d_ltu_stall_branch_load_A = d_is_branch_A & (x_is_load_A | x_is_load_B);
     // Global LTU stall pipe A
-    wire d_ltu_stall_A =  d_ltu_stall_with_pipe_A_A | d_ltu_stall_with_pipe_B_A;
+    wire d_ltu_stall_A =  d_ltu_stall_with_pipe_A_A | d_ltu_stall_with_pipe_B_A | d_ltu_stall_branch_load_A;
 
-    wire [1:0] decode_stall_logic_complete_A =
-                            d_ltu_stall_A ? 2'b11: // LTU Stall in A  
-                            (d_carry_over_stall_A == 2'b10) ? 2'b10 : 
-                            (stall_flushing_full_A == 1'b1) ? 2'b10 : 2'b0;
+    wire [1:0] decode_stall_logic_complete_A =  stall_flushing_full_A ? 2'b10 :
+                                                d_ltu_stall_A ? 2'b11: // LTU Stall in A  
+                                                (d_carry_over_stall_A == 2'b10) ? 2'b10 : 2'b00;
 
 
 
@@ -491,12 +492,12 @@ module lc4_processor(input wire         clk,             // main clock
 
     // NZP REGISTER
     wire [2:0]   x_nzp_curr, x_nzp_new_A, x_nzp_new_B, x_nzp_new;      
-    assign x_nzp_new_A = ($signed(x_alu_data_A) < 0) ? 100 : ($signed(x_alu_data_A) > 0) ? 001 : 010;
+    assign x_nzp_new_A = ($signed(x_alu_data_A) < 0) ? 100 : ($signed(x_alu_data_A) > 0) ? 001 : 010; 
     assign x_nzp_new_B = ($signed(x_alu_data_B) < 0) ? 100 : ($signed(x_alu_data_B) > 0) ? 001 : 010;
-    assign x_nzp_new = x_nzp_we_B ? x_nzp_new_B :
+    assign x_nzp_new = (x_nzp_we_B & !stall_flushing_full_A) ? x_nzp_new_B : // Do not write to nzp if X.B is flushed
                         x_nzp_we_A ? x_nzp_new_A :
                         x_nzp_curr;
-    Nbit_reg #(3, 3'b000) x_nzp_reg_A (.in(x_nzp_new), .out(x_nzp_curr), .clk(clk), .we(x_nzp_we_A), .gwe(gwe), .rst(rst));
+    Nbit_reg #(3, 3'b000) x_nzp_reg_A (.in(x_nzp_new), .out(x_nzp_curr), .clk(clk), .we(x_nzp_we_A | x_nzp_new_B), .gwe(gwe), .rst(rst));
  
 
 
@@ -782,14 +783,15 @@ module lc4_processor(input wire         clk,             // main clock
         // $display("%d MEMORY ADDR B:  m: %h, w: %h", $time, m_o_dmem_addr_B, w_o_dmem_addr_B);
         $display("%d STALL A: f: %h, d: %h, x: %h, m: %h, w: %h", $time, f_stall, d_carry_over_stall_A, x_carry_over_stall_A, m_carry_over_stall_A, w_carry_over_stall_A);
         $display("%d STALL B: f: %h, d: %h, x: %h, m: %h, w: %h", $time, f_stall, d_carry_over_stall_B, x_carry_over_stall_B, m_carry_over_stall_B, w_carry_over_stall_B);
-        // $display("%d pipe A LTU: %b, pipe B LTU: %b, superscalar stall: %b, does b stall: %b", $time, d_ltu_stall_A, d_ltu_stall_B, d_superscalar_stall_B, d_does_pipe_stall_B);
-        // $display("%d A LTU STALL: D.A & X.A: %b (r1, %b) (r1,%b), D.A & X.B: %b", $time,d_ltu_stall_with_pipe_A_A, d_ltu_stall_with_pipe_A_on_r1_A, d_ltu_stall_with_pipe_A_on_r2_A, d_ltu_stall_with_pipe_B_A);
-        // $display("%d A LTU STALL: D.B & X.B: %b (r1, %b) (r1,%b), D.B & X.A: %b", $time, d_ltu_stall_with_pipe_B_B, d_ltu_stall_with_pipe_B_on_r1_B, d_ltu_stall_with_pipe_B_on_r2_B, d_ltu_stall_with_pipe_A_B);
-        // $display("%d B superscalar stall: decode dependency: %b, memory dependency: %b", $time, d_decode_pipe_dependency, d_decode_memory_dependency);
+        $display("%d pipe A LTU: %b, pipe B LTU: %b, superscalar stall: %b, does b stall: %b", $time, d_ltu_stall_A, d_ltu_stall_B, d_superscalar_stall_B, d_does_pipe_stall_B);
+        $display("%d A LTU STALL: D.A & X.A: %b (r1, %b) (r1,%b), D.A & X.B: %b", $time,d_ltu_stall_with_pipe_A_A, d_ltu_stall_with_pipe_A_on_r1_A, d_ltu_stall_with_pipe_A_on_r2_A, d_ltu_stall_with_pipe_B_A);
+        $display("%d A LTU STALL: D.B & X.B: %b (r1, %b) (r1,%b), D.B & X.A: %b", $time, d_ltu_stall_with_pipe_B_B, d_ltu_stall_with_pipe_B_on_r1_B, d_ltu_stall_with_pipe_B_on_r2_B, d_ltu_stall_with_pipe_A_B);
+        $display("%d B superscalar stall: decode dependency: %b, memory dependency: %b", $time, d_decode_pipe_dependency, d_decode_memory_dependency);
         $display("%d Branch take branch A: %b, take branch B: %b", $time, change_pc_branch_A, change_pc_branch_B);
         $display("%d stall_full_flushing_A: %b, stall_full_flushing_B: %b", $time, stall_flushing_full_A, stall_flushing_full_B);
-        $display("%d NZP: curr: %b, used: %b, insn:  %b", $time, x_nzp_curr, branch_nzp_A, x_insn_A[11:9] );
+        $display("%d NZP: curr: %b, used: %b, insn:  %b, new: %b", $time, x_nzp_curr, branch_nzp_A, x_insn_A[11:9], x_nzp_new);
         $display("%d NZP WE A: d: %b, x: %b, m: %b, w: %b", $time, d_nzp_we_A, x_nzp_we_A, m_nzp_we_A, w_nzp_we_A);
+        $display("%d NZP WE B: d: %b, x: %b, m: %b, w: %b", $time, d_nzp_we_B, x_nzp_we_B, m_nzp_we_B, w_nzp_we_B);
         
     //    $display("%d INSN: f: %h, d: %h, x: %h, m: %h, w: %h", $time, i_cur_insn, d_insn, x_insn, m_insn, w_insn);
     //    $display("%d ALU INPUT: R%d:%d, R%d:%d, DEST: R%d, OUTPUT: %d", $time,x_r1_sel, i_r1_alu, x_r2_sel, i_r2_alu, x_rd_sel, x_alu_data);
